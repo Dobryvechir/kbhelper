@@ -44,7 +44,7 @@ func placeNumberToBuf(buf []byte, size int, ipStr string) bool {
 	}
 	return true
 }
-func scanGeoLocationCsvFile(src string, dst string, countryDst string, size int) {
+func scanGeoLocationCsvFile(src string, dst string, countryDst string, size int, exclude bool) {
 	file, err := os.Open(src)
 	if err != nil {
 		log.Fatal(err)
@@ -92,9 +92,13 @@ func scanGeoLocationCsvFile(src string, dst string, countryDst string, size int)
 				}
 			}
 			if placeNumberToBuf(buf, size, ipStr) {
-				buf[size] = countryCode[0]
-				buf[size+1] = countryCode[1]
-				pool = append(pool, buf...)
+				if !(exclude && buf[15] == 0 && buf[14] == 0 &&
+					buf[13] == 0 && buf[12] == 0 && buf[11] == 0 && buf[10] == 0 && buf[9] == 0 &&
+					buf[8] == 0 && buf[7] == 0 && buf[6] == 0 && buf[4] == 255 && buf[5] == 255) {
+					buf[size] = countryCode[0]
+					buf[size+1] = countryCode[1]
+					pool = append(pool, buf...)
+				}
 			} else {
 				fmt.Println("Incorrect IP number in first position at %d in %s\n", count, t)
 			}
@@ -116,7 +120,7 @@ func scanGeoLocationCsvFile(src string, dst string, countryDst string, size int)
 
 func main() {
 	l := len(os.Args)
-	if l < 3 || os.Args[2] != "4" && os.Args[2] != "6" {
+	if l < 3 || os.Args[2] != "4" && os.Args[2] != "6" && os.Args[2] != "6+" {
 		fmt.Println(copyright)
 		fmt.Println("csvtobin processes geolocation files in csv format and produces minimum binaries to search for the countries")
 		fmt.Println("csvtobin <src file name in csv format> <4 | 6 (4 for IP4, 6 for IP6)> <dst file name (defaults to ipX.bin)> <country dst file name(defaults to countries.properties)>")
@@ -125,7 +129,13 @@ func main() {
 	src := os.Args[1]
 	size := 4
 	dst := "ip4.bin"
+	exclude := false
 	if os.Args[2] == "6" {
+		size = 6
+		dst = "ip6.bin"
+		exclude = true
+	}
+	if os.Args[2] == "6+" {
 		size = 6
 		dst = "ip6.bin"
 	}
@@ -136,5 +146,5 @@ func main() {
 	if l >= 5 {
 		countries = os.Args[4]
 	}
-	scanGeoLocationCsvFile(src, dst, countries, size)
+	scanGeoLocationCsvFile(src, dst, countries, size, exclude)
 }
