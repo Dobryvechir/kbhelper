@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+        "strconv"
 )
 
 func readJsonStringPart(data []byte, pos int) (string, int, error) {
@@ -33,7 +34,7 @@ func readJsonStringPart(data []byte, pos int) (string, int, error) {
 		}
 	}
 	if pos >= n {
-		return "", n, fmt.Errorf("Quote is not closed at %d", start)
+		return "", n, fmt.Errorf("Quote is not closed %s", getPositionErrorInfo(data, start))
 	}
 	var res string
 	if escaped {
@@ -70,9 +71,9 @@ func readJsonSimplePart(data []byte, pos int) (string, int, error) {
 		if str == "null" || str == "false" || str == "true" {
 			return str, pos, nil
 		}
-		return "", n, fmt.Errorf("Incorrect word %s at %d", str, start)
+		return "", n, fmt.Errorf("Incorrect word %s %s", str, getPositionErrorInfo(data, start))
 	}
-	return "", n, fmt.Errorf("Unexpected character %s at %d", string([]byte{b}), start)
+	return "", n, fmt.Errorf("Unexpected character %s %s", string([]byte{b}), getPositionErrorInfo(data, start))
 }
 
 func readJsonNextNonSpace(data []byte, pos int, n int) int {
@@ -103,16 +104,17 @@ func readJsonPart(data []byte, i int) (*DvEntry, int, error) {
 				}
 				i = readJsonNextNonSpace(data, nextPos, n)
 				if i >= n || data[i] != ':' {
-					return nil, n, fmt.Errorf("Expected colon at %d", n)
+					return nil, n, fmt.Errorf("Expected colon %s", getPositionErrorInfo(data, n))
 				}
-				dvEntry, nxtPos, err1 := readJsonPart(data, i)
+				dvEntry, nxtPos, err1 := readJsonPart(data, i+1)
 				if err1 != nil {
-					return nil, n, err
+					return nil, n, err1
 				}
 				i = nxtPos
+				dvEntry.Order = len(mapValue)
 				mapValue[key] = dvEntry
 			} else {
-				return nil, n, fmt.Errorf("Unexpected character %s at %d", string(data[i:i+1]), i)
+				return nil, n, fmt.Errorf("Unexpected character %s %s", string(data[i:i+1]), getPositionErrorInfo(data, i))
 			}
 			i = readJsonNextNonSpace(data, i, n)
 			if i < n && data[i] == ',' {
@@ -120,13 +122,12 @@ func readJsonPart(data []byte, i int) (*DvEntry, int, error) {
 				continue
 			}
 			if data[i] != '}' {
-				return nil, n, fmt.Errorf("Unexpected character %s at %d (expected } or comma)", string(data[i:i+1]), i)
+				return nil, n, fmt.Errorf("Unexpected character %s %s (expected } or comma)", string(data[i:i+1]), getPositionErrorInfo(data, i))
 			}
 		}
 		if i >= n {
-			return nil, n, fmt.Errorf("Expected } at the end", string(data[i:i+1]), i)
+			return nil, n, fmt.Errorf("Expected } at the end %s", string(data[i:i+1]), getPositionErrorInfo(data, n))
 		}
-                fmt.Printf("\nDB:Map: %d",len(mapValue))
 		return &DvEntry{Type: DV_ENTRY_MAP, MapValue: mapValue}, i + 1, nil
 	case '[':
 		arrayValue := make([]*DvEntry, 0, 20)
@@ -136,6 +137,7 @@ func readJsonPart(data []byte, i int) (*DvEntry, int, error) {
 			if err != nil {
 				return nil, n, err
 			}
+			dvEntry.Order = len(arrayValue)
 			arrayValue = append(arrayValue, dvEntry)
 			i = readJsonNextNonSpace(data, nextPos, n)
 			if i < n && data[i] == ',' {
@@ -143,34 +145,30 @@ func readJsonPart(data []byte, i int) (*DvEntry, int, error) {
 				continue
 			}
 			if data[i] != ']' {
-				return nil, n, fmt.Errorf("Unexpected character %s at %d (expected ] or comma)", string(data[i:i+1]), i)
+				return nil, n, fmt.Errorf("Unexpected character %s %s (expected ] or comma)", string(data[i:i+1]), getPositionErrorInfo(data, i))
 			}
 		}
 		if i >= n {
-			return nil, n, fmt.Errorf("Expected ] at the end", string(data[i:i+1]), i)
+			return nil, n, fmt.Errorf("Expected ] at the end %s", string(data[i:i+1]), getPositionErrorInfo(data, n))
 		}
-                fmt.Printf("\nDB:Array: %d",len(arrayValue))
 		return &DvEntry{Type: DV_ENTRY_ARRAY, ArrayValue: arrayValue}, i + 1, nil
 	case '"':
 		str, nextPos, err := readJsonStringPart(data, i)
 		if err != nil {
 			return nil, n, err
 		}
-                fmt.Printf("\nDB:String: %s",str)
 		return &DvEntry{Type: DV_ENTRY_STRING, StringValue: str}, nextPos, nil
 	default:
 		str, nextPos, err := readJsonSimplePart(data, i)
 		if err != nil {
 			return nil, n, err
 		}
-                fmt.Printf("\nDB:Value: %s",str)
 		return &DvEntry{Type: DV_ENTRY_SIMPLE, StringValue: str}, nextPos, nil
 	}
 
 }
 
 func readJsonAsEntries(data []byte) (*DvEntry, error) {
-        fmt.Printf("\nDB:readJsonAsEntries %d",len(data))
 	dvEntry, pos, err := readJsonPart(data, 0)
 	if err != nil {
 		return nil, err
@@ -178,8 +176,42 @@ func readJsonAsEntries(data []byte) (*DvEntry, error) {
 	l := len(data)
 	for ; pos < l; pos++ {
 		if data[pos] > 32 {
-			return nil, fmt.Errorf("\nUnexpected extra characters at %d (%s)", pos, string(data[pos:]))
+			return nil, fmt.Errorf("\nUnexpected extra characters %s", getPositionErrorInfo(data, pos))
 		}
 	}
 	return dvEntry, nil
+}
+
+func getPositionErrorInfo(data []byte, pos int) string {
+	line := 1
+	column := 1
+	for i := 0; i < pos; i++ {
+		b := data[i]
+		if b == 13 || b == 10 {
+			if b == 13 && i+1 < pos && data[i+1] == 10 {
+				i++
+			}
+			line++
+			column = 1
+		} else {
+			column++
+		}
+	}
+	endPos := pos + 20
+	if endPos > len(data) {
+		endPos = len(data)
+	}
+	bufLen := endPos - pos
+	addInfo := ""
+	if bufLen > 0 {
+		buf := make([]byte, bufLen)
+		for i := 0; i < bufLen; i++ {
+			buf[i] = data[pos+i]
+			if buf[i] < 32 {
+				buf[i] = '.'
+			}
+		}
+		addInfo = string(buf)
+	}
+	return " at " + strconv.Itoa(line) + ":" + strconv.Itoa(column) + " [" + addInfo + "] "
 }

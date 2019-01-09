@@ -2,6 +2,10 @@
 
 package main
 
+import (
+	"sort"
+)
+
 type DvEntryType int
 
 const (
@@ -16,6 +20,45 @@ type DvEntry struct {
 	StringValue string
 	MapValue    map[string]*DvEntry
 	ArrayValue  []*DvEntry
+	Order       int
+	keyValue    string
+}
+
+type dvEntrySorter struct {
+	dvEntries []*DvEntry
+}
+
+func (d *dvEntrySorter) Len() int {
+	return len(d.dvEntries)
+}
+
+func (d *dvEntrySorter) Swap(i, j int) {
+	d.dvEntries[i], d.dvEntries[j] = d.dvEntries[j], d.dvEntries[i]
+}
+
+func (d *dvEntrySorter) Less(i, j int) bool {
+	orderI := -1
+	orderJ := -1
+	if d.dvEntries[i] != nil {
+		orderI = d.dvEntries[i].Order
+	}
+	if d.dvEntries[j] != nil {
+		orderJ = d.dvEntries[j].Order
+	}
+	return orderI < orderJ
+}
+
+func getSortedDvEntryByOrder(mapValue map[string]*DvEntry) []*DvEntry {
+	n := len(mapValue)
+	entryList := make([]*DvEntry, n)
+	count := 0
+	for k, v := range mapValue {
+		v.keyValue = k
+		entryList[count] = v
+		count++
+	}
+	sort.Stable(&dvEntrySorter{dvEntries: entryList})
+	return entryList
 }
 
 func (dvEntry *DvEntry) PrintToJsonAtLevel(res []byte, level int, indent int, noIndentAtFirst bool) []byte {
@@ -79,7 +122,8 @@ func (dvEntry *DvEntry) PrintToJsonAtLevel(res []byte, level int, indent int, no
 				}
 			}
 			isNext := false
-			for k, v := range dvEntry.MapValue {
+			entryList := getSortedDvEntryByOrder(dvEntry.MapValue)
+			for _, v := range entryList {
 				if isNext {
 					res = append(res, ',', byte(10))
 				} else {
@@ -88,7 +132,7 @@ func (dvEntry *DvEntry) PrintToJsonAtLevel(res []byte, level int, indent int, no
 				if indent > 0 {
 					res = append(res, nextIndentBuf...)
 				}
-				res = appendJsonEscapedString(res, []byte(k))
+				res = appendJsonEscapedString(res, []byte(v.keyValue))
 				res = append(res, ':', ' ')
 				res = v.PrintToJsonAtLevel(res, nextLevel, indent, true)
 			}
@@ -130,11 +174,11 @@ func appendYamlEscapedString(res []byte, add []byte) []byte {
 	isSimple := true
 	for i := 0; i < n; i++ {
 		b := add[i]
-		if !(b >= '0' && b <= '9' || b == '-' && i == 0) {
-			if b != '.' {
+		if !(b >= '0' && b <= '9') {
+			if b != '.' && b != '+' && b != 'e' && b != '-' {
 				isNumber = false
 			}
-			if !(b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z' || b == '-') {
+			if !(b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z' || b > 127 || (i > 0 && i < n-1 && (b == '.' || b == '/' || b == '-'))) {
 				isSimple = false
 				if !isNumber {
 					break
@@ -173,7 +217,7 @@ func (dvEntry *DvEntry) PrintToYamlAtLevel(res []byte, level int, indent int, no
 	}
 	n := indent * level
 	nextLevel := level + 1
-	var indentBuf, nextIndentBuf []byte
+	var indentBuf []byte
 	indentBuf = make([]byte, n+1)
 	indentBuf[0] = byte(10)
 	for i := 1; i <= n; i++ {
@@ -191,7 +235,7 @@ func (dvEntry *DvEntry) PrintToYamlAtLevel(res []byte, level int, indent int, no
 			for i := 0; i < arrayAmount; i++ {
 				res = append(res, indentBuf...)
 				res = append(res, '-', ' ')
-				res = dvEntry.ArrayValue[i].PrintToJsonAtLevel(res, nextLevel, indent, true)
+				res = dvEntry.ArrayValue[i].PrintToYamlAtLevel(res, nextLevel, indent, true)
 			}
 		} else {
 			res = append(res, '[', ']')
@@ -199,11 +243,12 @@ func (dvEntry *DvEntry) PrintToYamlAtLevel(res []byte, level int, indent int, no
 	case DV_ENTRY_MAP:
 		mapAmount := len(dvEntry.MapValue)
 		if mapAmount > 0 {
-			for k, v := range dvEntry.MapValue {
-				res = append(res, nextIndentBuf...)
-				res = appendJsonEscapedString(res, []byte(k))
+			entryList := getSortedDvEntryByOrder(dvEntry.MapValue)
+			for _, v := range entryList {
+				res = append(res, indentBuf...)
+				res = appendYamlEscapedString(res, []byte(v.keyValue))
 				res = append(res, ':', ' ')
-				res = v.PrintToJsonAtLevel(res, nextLevel, indent, true)
+				res = v.PrintToYamlAtLevel(res, nextLevel, indent, true)
 			}
 		} else {
 			res = append(res, '{', '}')

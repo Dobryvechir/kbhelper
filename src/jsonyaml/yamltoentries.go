@@ -13,7 +13,7 @@ func readYamlValue(data []byte, pos int) (res string, nextPos int, err error, tp
 		for nextPos = pos + 1; nextPos < n && data[nextPos] != '\''; nextPos++ {
 		}
 		if nextPos >= n {
-			err = fmt.Errorf("Unclosed single quote string at %d")
+			err = fmt.Errorf("Unclosed single quote string %s", getPositionErrorInfo(data, pos))
 			return
 		}
 		res = string(data[pos+1 : nextPos])
@@ -35,7 +35,7 @@ func readYamlValue(data []byte, pos int) (res string, nextPos int, err error, tp
 			}
 		}
 		if nextPos >= n {
-			err = fmt.Errorf("Unclosed double quote string at %d")
+			err = fmt.Errorf("Unclosed double quote string %s", getPositionErrorInfo(data, pos))
 			return
 		}
 		res = string(buf)
@@ -63,8 +63,11 @@ func readYamlValue(data []byte, pos int) (res string, nextPos int, err error, tp
 	return
 }
 
-func readYamlNonEmptyLine(data []byte, pos int, currentIndent int) (nxtPos int, indent int) {
-	indent = currentIndent
+func readYamlNonEmptyLine(data []byte, pos int) (nxtPos int, indent int) {
+	indent = 0
+	for prevPos := pos; prevPos > 0 && data[prevPos-1] != 10 && data[prevPos-1] != 13; prevPos-- {
+		indent++
+	}
 	n := len(data)
 	for nxtPos = pos; nxtPos < n; nxtPos++ {
 		b := data[nxtPos]
@@ -98,9 +101,10 @@ func readYamlPartMap(data []byte, pos int, indent int, endChar byte, currentKey 
 		if err != nil {
 			return nil, n, err
 		}
+		dvEntry.Order = len(mapValue)
 		mapValue[currentKey] = dvEntry
 		pos = nxtPos
-		nextPos, newIndent := readYamlNonEmptyLine(data, nxtPos, 0)
+		nextPos, newIndent := readYamlNonEmptyLine(data, nxtPos)
 		if newIndent != indent || nextPos >= n || data[nextPos] == '-' || data[nextPos] == endChar {
 			break
 		}
@@ -108,9 +112,9 @@ func readYamlPartMap(data []byte, pos int, indent int, endChar byte, currentKey 
 		if err != nil {
 			return nil, n, err
 		}
-		pos, newIndent = readYamlNonEmptyLine(data, nextPos, newIndent+1)
+		pos, newIndent = readYamlNonEmptyLine(data, nextPos)
 		if pos >= n || data[pos] != ':' || newIndent <= indent {
-			return nil, n, fmt.Errorf("Expected colon at %d", pos)
+			return nil, n, fmt.Errorf("Expected colon  %s", getPositionErrorInfo(data, pos))
 		}
 		pos++
 
@@ -126,9 +130,10 @@ func readYamlPartArray(data []byte, pos int, indent int, endChar byte) (*DvEntry
 		if err != nil {
 			return nil, n, err
 		}
+		dvEntry.Order = len(arrayValue)
 		arrayValue = append(arrayValue, dvEntry)
 		pos = nxtPos
-		nextPos, newIndent := readYamlNonEmptyLine(data, nxtPos, 0)
+		nextPos, newIndent := readYamlNonEmptyLine(data, nxtPos)
 		if newIndent != indent {
 			break
 		}
@@ -140,9 +145,9 @@ func readYamlPartArray(data []byte, pos int, indent int, endChar byte) (*DvEntry
 func readYamlPart(data []byte, pos int, indent int, endChar byte) (*DvEntry, int, error) {
 	n := len(data)
 	for pos < n {
-		nxtPos, newIndent := readYamlNonEmptyLine(data, pos, 0)
+		nxtPos, newIndent := readYamlNonEmptyLine(data, pos)
 		if newIndent < indent || nxtPos >= n {
-			return nil, n, fmt.Errorf("Uncompleted yaml at %d", pos)
+			return nil, n, fmt.Errorf("Uncompleted yaml %s (new indent=%d old indent=%d next position=%d) ", getPositionErrorInfo(data, pos), newIndent, indent, nxtPos)
 		}
 		b := data[nxtPos]
 		switch b {
@@ -155,18 +160,18 @@ func readYamlPart(data []byte, pos int, indent int, endChar byte) (*DvEntry, int
 			if err != nil {
 				return nil, n, err
 			}
-			nexterPos, newerIndent := readYamlNonEmptyLine(data, nextPos, newIndent+1)
+			nexterPos, newerIndent := readYamlNonEmptyLine(data, nextPos)
 			if newerIndent <= newIndent || nexterPos >= n || data[nexterPos] != ':' {
 				return &DvEntry{Type: tp, StringValue: str}, nextPos, nil
 			}
 			if data[nexterPos] == ':' {
 				return readYamlPartMap(data, nexterPos+1, newIndent, endChar, str)
 			}
-			return nil, n, fmt.Errorf("Unexpected character at %d", nexterPos)
+			return nil, n, fmt.Errorf("Unexpected character at %s", getPositionErrorInfo(data, nexterPos))
 
 		}
 	}
-        return nil, n, fmt.Errorf("Empty definition found at the end")
+	return nil, n, fmt.Errorf("Empty definition found at the end %s", getPositionErrorInfo(data, n))
 }
 
 func readYamlAsEntries(data []byte) (*DvEntry, error) {
@@ -177,7 +182,7 @@ func readYamlAsEntries(data []byte) (*DvEntry, error) {
 	l := len(data)
 	for ; pos < l; pos++ {
 		if data[pos] > 32 {
-			return nil, fmt.Errorf("Unexpected extra characters at %d (%s)", pos, string(data[pos:]))
+			return nil, fmt.Errorf("Unexpected extra characters %s", getPositionErrorInfo(data, pos))
 		}
 	}
 	return dvEntry, nil
