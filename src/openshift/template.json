@@ -1,0 +1,548 @@
+{
+  "parameters": [
+    {
+      "name": "MEMORY_REQUEST",
+      "displayName": "Memory Request",
+      "description": "Minimum amount of memory the container will use to start.",
+      "value": "768Mi"
+    },
+    {
+      "name": "CPU_REQUEST",
+      "displayName": "CPU Request",
+      "description": "Minimum amount of CPU the container will use to start.",
+      "value": "600m"
+    },
+    {
+      "name": "MEMORY_LIMIT",
+      "displayName": "Memory Limit",
+      "description": "Maximum amount of memory the container can use.",
+      "value": "1Gi"
+    },
+    {
+      "name": "CPU_LIMIT",
+      "displayName": "CPU Limit",
+      "description": "Maximum amount of CPU the container can use",
+      "value": "1000m"
+    },
+    {
+      "name": "NAMESPACE",
+      "displayName": "Namespace",
+      "description": "The OpenShift Namespace where the ImageStream resides.",
+      "value": "openshift"
+    },
+    {
+      "name": "SERVICE_NAME",
+      "displayName": "Database Service Name",
+      "description": "The name of the OpenShift Service exposed for the database.",
+      "value": "access-control",
+      "required": true
+    },
+    {
+      "name": "SECRET_PATH",
+      "value": "/etc/secret",
+      "description": "Client secret volume path",
+      "required": false
+    },
+    {
+      "name": "SPRING_PROFILES_ACTIVE",
+      "displayName": "Spring profile",
+      "description": "Currently used spring profile, determines which application configuration will be used.",
+      "value": "prod"
+    },
+    {
+      "name": "DB_CONNECTION_URL",
+      "displayName": "Database connection url",
+      "description": "JDBC url of the database, only Postgres is supported. Required only if prod profile is active.",
+      "value": ""
+    },
+    {
+      "name": "IDENTITY_PROVIDER_URL",
+      "displayName": "Identity Provider url",
+      "description": "Absolute url of Identity Provider",
+      "value": "http://identity-provider:8080",
+      "required": true
+    },
+    {
+      "name": "TOKEN_URL",
+      "displayName": "Token url",
+      "description": "Part of absolute url of token url",
+      "value": "/token"
+    },
+    {
+      "name": "IDENTITY_PROVIDER",
+      "displayName": "Identity Provider",
+      "description": "IDP type: `keycloak` or `mitre`",
+      "value": "mitre",
+      "required": false
+    },
+    {
+      "name": "ACCESS_CONTROL_CACHE_EVICT_INTERVAL",
+      "displayName": "Cache evict interval",
+      "description": "Time interval in milliseconds between cache actualization check attempts",
+      "value": "30000",
+      "required": false
+    },
+    {
+      "name": "ROUTE_REGISTRATION_ENABLED",
+      "displayName": "Route registration enabled",
+      "description": "Determines if service should register routes in api gateway or not. Used only if prod profile is active.",
+      "value": "true",
+      "required": false
+    },
+    {
+      "name": "DISABLE_DEFAULT_CLIENT",
+      "displayName": "Disable default oauth2 client",
+      "description": "Disable default oauth2 client and use credentials from /etc/secret",
+      "value": "true",
+      "required": false
+    },
+    {
+      "name": "IMAGE_REPOSITORY",
+      "displayName": "Repository to pull image from",
+      "description": "Repository to pull image from",
+      "value": "${ENV_IMAGE_REPOSITORY}"
+    },
+    {
+      "name": "TAG",
+      "displayName": "Docker image tag",
+      "description": "Docker image tag",
+      "value": "${ENV_TAG}"
+    },
+    {
+      "name": "ACCESS_CONTROL_ADMIN_ROLE",
+      "displayName": "Access Control admin role",
+      "description": "Role that allowed to edit authorization policies",
+      "value": "ROLE_ADMINISTRATOR"
+    },
+    {
+      "name": "DEPLOY_POLICIES_DIR",
+      "description": "Directory of file with policies imported on deploy.",
+      "value": "/app/data/policies",
+      "required": false
+    },
+    {
+      "name": "DEPLOY_PIPS_DIR",
+      "description": "Directory of file with policies imported on deploy.",
+      "value": "/app/data/pips",
+      "required": false
+    },
+    {
+      "name": "DEPLOY_POLICIES_FILE",
+      "description": "Name of file with policies imported on deploy.",
+      "value": "policies-to-deploy.json",
+      "required": false
+    },
+    {
+      "name": "DEPLOY_PIPS_FILE",
+      "description": "Name of file with PIPs imported on deploy.",
+      "value": "pips-to-deploy.json",
+      "required": false
+    },
+    {
+      "name": "INTERNAL_APIGATEWAY_URL",
+      "displayName": "Internal api-gateway url",
+      "value": "http://internal-gateway-service:8080"
+    },
+    {
+      "name": "PUBLIC_APIGATEWAY_URL",
+      "displayName": "Internal api-gateway url",
+      "value": "http://public-gateway-service:8080"
+    },
+    {
+      "name": "PRIVATE_APIGATEWAY_URL",
+      "displayName": "Internal api-gateway url",
+      "value": "http://private-gateway-service:8080"
+    },
+    {
+      "name": "LIVENESS_PROBE_DELAY",
+      "description": "How long to wait after the container starts to begin the probe.",
+      "value": "90",
+      "required": false
+    },
+    {
+      "name": "LIVENESS_PROBE_TIMEOUT_SECONDS",
+      "description": "How long to wait for the probe to finish.",
+      "value": "5",
+      "required": false
+    },
+    {
+      "name": "LIVENESS_PROBE_FAILURE_THRESHOLD",
+      "description": "Number of unsuccessful attempts before liveness probe will be failed.",
+      "value": "20",
+      "required": false
+    },
+    {
+      "name": "READINESS_PROBE_DELAY",
+      "description": "How long to wait after the container starts to begin the probe.",
+      "value": "90",
+      "required": false
+    },
+    {
+      "name": "READINESS_PROBE_TIMEOUT_SECONDS",
+      "description": "How long to wait for the probe to finish.",
+      "value": "5",
+      "required": false
+    },
+    {
+      "name": "READINESS_PROBE_FAILURE_THRESHOLD",
+      "description": "Number of unsuccessful attempts before readiness probe will be failed.",
+      "value": "5",
+      "required": false
+    },
+    {
+      "name": "SCALING_UP_TIMEOUT",
+      "value": "600",
+      "description": "How long to wait for pods readiness before giving up.",
+      "required": true
+    },
+    {
+      "name": "REPLICAS",
+      "description": "Number of instances",
+      "value": "1",
+      "required": true
+    },
+    {
+      "name": "TOPOLOGY_KEY",
+      "value": "kubernetes.io/hostname",
+      "required": true
+    },
+    {
+      "name": "POD_AFFINITY_TERM",
+      "description": "required or preferred",
+      "value": "preferred",
+      "required": true
+    }
+  ],
+  "kind": "Template",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "access-control",
+    "annotations": {
+      "openshift.io/display-name": "access-control",
+      "iconClass": "icon-agent",
+      "tags": "access-control"
+    }
+  },
+  "labels": {
+    "template": "access-control"
+  },
+  "objects": [
+    {
+      "kind": "Service",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "${SERVICE_NAME}",
+        "annotations": {
+          "netcracker.cloud/mui.fragment.path": "/web-resource/access-control-frontend.json",
+          "netcracker.cloud/cp.ui.fragment.path": "/web-resource/ui-configuration.json"
+        }
+      },
+      "spec": {
+        "ports": [
+          {
+            "name": "tcp",
+            "protocol": "TCP",
+            "port": 8080,
+            "targetPort": 8080
+          },
+          {
+            "name": "monitoring",
+            "protocol": "TCP",
+            "port": 8081,
+            "targetPort": 8081
+          }
+        ],
+        "selector": {
+          "name": "${SERVICE_NAME}"
+        },
+        "type": "ClusterIP",
+        "sessionAffinity": "None"
+      }
+    },
+    {
+      "kind": "Route",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "${SERVICE_NAME}",
+        "labels": {
+          "name": "${SERVICE_NAME}"
+        }
+      },
+      "spec": {
+        "to": {
+          "kind": "Service",
+          "name": "${SERVICE_NAME}"
+        },
+        "port": {
+          "targetPort": "tcp"
+        }
+      }
+    },
+    {
+      "kind": "Route",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "${SERVICE_NAME}-monitoring",
+        "labels": {
+          "name": "${SERVICE_NAME}-monitoring"
+        }
+      },
+      "spec": {
+        "to": {
+          "kind": "Service",
+          "name": "${SERVICE_NAME}"
+        },
+        "port": {
+          "targetPort": "monitoring"
+        }
+      }
+    },
+    {
+      "kind": "DeploymentConfig",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "${SERVICE_NAME}"
+      },
+      "spec": {
+        "strategy": {
+          "type": "Rolling",
+          "rollingParams": {
+            "updatePeriodSeconds": 1,
+            "intervalSeconds": 1,
+            "timeoutSeconds": "${SCALING_UP_TIMEOUT}",
+            "maxUnavailable": "25%",
+            "maxSurge": "25%"
+          }
+        },
+        "triggers": [
+          {
+            "type": "ConfigChange"
+          }
+        ],
+        "replicas": "${{REPLICAS}}",
+        "selector": {
+          "name": "${SERVICE_NAME}",
+          "deploymentconfig": "${SERVICE_NAME}"
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "name": "${SERVICE_NAME}",
+              "deploymentconfig": "${SERVICE_NAME}"
+            },
+            "annotations": {
+              "prometheus.io/path": "/management/prometheus",
+              "prometheus.io/port": "8081",
+              "prometheus.io/scrape": "true",
+              "scheduler.alpha.kubernetes.io/affinity": "{\"podAntiAffinity\": {\"${POD_AFFINITY_TERM}DuringSchedulingIgnoredDuringExecution\": [{\"weight\": 100, \"labelSelector\": {\"matchExpressions\": [{\"key\": \"name\", \"operator\": \"In\", \"values\": [ \"${SERVICE_NAME}\" ] } ] }, \"topologyKey\": \"${TOPOLOGY_KEY}\" } ] }}"
+            }
+          },
+          "spec": {
+            "volumes": [
+              {
+                "name": "client-credentials",
+                "secret": {
+                  "secretName": "${SERVICE_NAME}-client-credentials"
+                }
+              },
+              {
+                "name": "deploy-policies-config",
+                "configMap": {
+                  "name": "deploy-policies-config"
+                }
+              },
+              {
+                "name": "deploy-pips-config",
+                "configMap": {
+                  "name": "deploy-pips-config"
+                }
+              }
+            ],
+            "containers": [
+              {
+                "name": "access-control",
+                "image": "${IMAGE_REPOSITORY}:${TAG}",
+                "volumeMounts": [
+                  {
+                    "name": "client-credentials",
+                    "mountPath": "${SECRET_PATH}",
+                    "readOnly": true
+                  },
+                  {
+                    "name": "deploy-policies-config",
+                    "mountPath": "${DEPLOY_POLICIES_DIR}"
+                  },
+                  {
+                    "name": "deploy-pips-config",
+                    "mountPath": "${DEPLOY_PIPS_DIR}"
+                  }
+                ],
+                "livenessProbe": {
+                  "tcpSocket": {
+                    "port": 8080
+                  },
+                  "initialDelaySeconds":"${LIVENESS_PROBE_DELAY}",
+                  "timeoutSeconds": "${LIVENESS_PROBE_TIMEOUT_SECONDS}",
+                  "periodSeconds": 15,
+                  "successThreshold": 1,
+                  "failureThreshold": "${{LIVENESS_PROBE_FAILURE_THRESHOLD}}"
+                },
+                "readinessProbe": {
+                  "httpGet": {
+                    "path": "/management/health",
+                    "port": 8081,
+                    "scheme": "HTTP"
+                  },
+                  "initialDelaySeconds": "${READINESS_PROBE_DELAY}",
+                  "timeoutSeconds": "${READINESS_PROBE_TIMEOUT_SECONDS}",
+                  "periodSeconds": 15,
+                  "successThreshold": 1,
+                  "failureThreshold": "${{READINESS_PROBE_FAILURE_THRESHOLD}}"
+                },
+                "env": [
+                  {
+                    "name": "OPENSHIFT_NAMESPACE",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "fieldPath": "metadata.namespace"
+                      }
+                    }
+                  },
+                  {
+                    "name": "SPRING_PROFILES_ACTIVE",
+                    "value": "${SPRING_PROFILES_ACTIVE}"
+                  },
+                  {
+                    "name": "DB_CONNECTION_URL",
+                    "value": "${DB_CONNECTION_URL}"
+                  },
+                  {
+                    "name": "DB_USERNAME",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "name": "${SERVICE_NAME}-pg-credentials",
+                        "key": "username"
+                      }
+                    }
+                  },
+                  {
+                    "name": "DB_PASSWORD",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "name": "${SERVICE_NAME}-pg-credentials",
+                        "key": "password"
+                      }
+                    }
+                  },
+                  {
+                    "name": "IDENTITY_PROVIDER",
+                    "value": "${IDENTITY_PROVIDER}"
+                  },
+                  {
+                    "name": "IDENTITY_PROVIDER_URL",
+                    "value": "${IDENTITY_PROVIDER_URL}"
+                  },
+                  {
+                    "name": "TOKEN_URL",
+                    "value": "${IDENTITY_PROVIDER_URL}${TOKEN_URL}"
+                  },
+                  {
+                    "name": "ROUTE_REGISTRATION_ENABLED",
+                    "value": "${ROUTE_REGISTRATION_ENABLED}"
+                  },
+                  {
+                    "name": "DISABLE_DEFAULT_CLIENT",
+                    "value": "${DISABLE_DEFAULT_CLIENT}"
+                  },
+                  {
+                    "name": "ACCESS_CONTROL_ADMIN_ROLE",
+                    "value": "${ACCESS_CONTROL_ADMIN_ROLE}"
+                  },
+                  {
+                    "name": "INTERNAL_APIGATEWAY_URL",
+                    "value": "${INTERNAL_APIGATEWAY_URL}"
+                  },
+                  {
+                    "name": "PUBLIC_APIGATEWAY_URL",
+                    "value": "${PUBLIC_APIGATEWAY_URL}"
+                  },
+                  {
+                    "name": "PRIVATE_APIGATEWAY_URL",
+                    "value": "${PRIVATE_APIGATEWAY_URL}"
+                  },
+                  {
+                    "name": "DEPLOY_POLICIES_LOCATION",
+                    "value": "${DEPLOY_POLICIES_DIR}/${DEPLOY_POLICIES_FILE}"
+                  },
+                  {
+                    "name": "DEPLOY_PIPS_LOCATION",
+                    "value": "${DEPLOY_PIPS_DIR}/${DEPLOY_PIPS_FILE}"
+                  },
+                  {
+                    "name": "ACCESS_CONTROL_CACHE_EVICT_INTERVAL",
+                    "value": "${ACCESS_CONTROL_CACHE_EVICT_INTERVAL}"
+                  },
+                  {
+                    "name": "CLIENT_ID",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "name": "registered-client-${SERVICE_NAME}",
+                        "key": "client-id"
+                      }
+                    }
+                  },
+                  {
+                    "name": "CLIENT_SECRET",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "client-secret",
+                        "name": "registered-client-${SERVICE_NAME}"
+                      }
+                    }
+                  }
+                ],
+                "ports": [
+                  {
+                    "containerPort": 8080,
+                    "protocol": "TCP"
+                  },
+                  {
+                    "containerPort": 8081,
+                    "protocol": "TCP"
+                  }
+                ],
+                "resources": {
+                  "requests": {
+                    "memory": "${MEMORY_REQUEST}",
+                    "cpu": "${CPU_REQUEST}"
+                  },
+                  "limits": {
+                    "memory": "${MEMORY_LIMIT}",
+                    "cpu": "${CPU_LIMIT}"
+                  }
+                },
+                "imagePullPolicy": "Always"
+              }
+            ],
+            "restartPolicy": "Always",
+            "dnsPolicy": "ClusterFirst"
+          }
+        }
+      }
+    },
+    {
+      "kind": "ConfigMap",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "${SERVICE_NAME}.monitoring-config",
+        "labels" : {
+          "app" : "${SERVICE_NAME}"
+        }
+      },
+      "data": {
+        "url.health": "http://%(ip)s:8081/management/health",
+        "url.metrics": "http://%(ip)s:8081/management/metrics"
+      }
+    }
+  ]
+}
