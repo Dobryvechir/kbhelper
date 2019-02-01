@@ -4,7 +4,10 @@ package main
 
 import (
 	"fmt"
+	"github.com/Dobryvechir/dvserver/src/dvparser"
+	"io/ioutil"
 	"os"
+	"strconv"
 )
 
 var copyright = "Copyright by Volodymyr Dobryvechir 2019"
@@ -42,8 +45,8 @@ func presentError(inp []byte, pos int, mes string) {
 			}
 		}
 	}
-	fmt.Printf("Error - %s at line %d column $d ")
-	panic("Fatal error")
+	fmt.Printf("Error - %s at line %d column %d ", mes, line, column)
+	panic("Fix your template!")
 }
 
 func replaceVariableByMap(inp []byte, outp []byte, params map[string]string, pos int, n int) ([]byte, int) {
@@ -112,6 +115,7 @@ func processValueOfValue(inp []byte, outp []byte, key string, valStart int, valE
 	if quoted {
 		outp = append(outp, '"')
 	}
+	return outp
 }
 
 func escapeQuote(data string) string {
@@ -129,6 +133,19 @@ func escapeQuote(data string) string {
 		}
 	}
 	return string(outBuf)
+}
+
+func findClosingQuote(inp []byte, pos int) int {
+	n := len(inp)
+	for ; pos < n; pos++ {
+		if inp[pos] == '"' {
+			return pos
+		}
+		if inp[pos] == '\\' {
+			pos++
+		}
+	}
+	return -1
 }
 
 func processOpenshiftTemplate(inp []byte, params map[string]string) (r []byte) {
@@ -176,10 +193,10 @@ func processOpenshiftTemplate(inp []byte, params map[string]string) (r []byte) {
 				state = S_PARAMS_END_OR_COMMA
 				if currentName != "" {
 					if res, ok := params[currentName]; ok {
-						for len(outp) > 0 && (outp[len(outp)-1] == 10 || outp[len(outp)-1] == 13) {
-							outp = outp[:len(outp)-1]
+						for len(r) > 0 && r[len(r)-1] <= 32 {
+							r = r[:len(r)-1]
 						}
-						r = append(r, []byte(",\n      \"value\": \""+escapeQuote(res)+"\"\n")...)
+						r = append(r, []byte(",\n      \"value\": \""+escapeQuote(res)+"\"\n    ")...)
 					} else {
 						presentError(inp, i, "value for param "+currentName+" is not specified")
 					}
@@ -194,7 +211,7 @@ func processOpenshiftTemplate(inp []byte, params map[string]string) (r []byte) {
 			case S_KEY_COLON_OF_VALUE:
 				state = S_VALUE_OF_VALUE
 			case S_KEY_COLON_OF_NAME:
-				state = S_KEY_COLON_OF_NAME
+				state = S_VALUE_OF_NAME
 			case S_KEY_COLON_OF_OTHER:
 				state = S_VALUE_OF_OTHER
 			default:
@@ -228,18 +245,19 @@ func processOpenshiftTemplate(inp []byte, params map[string]string) (r []byte) {
 				state = S_PARAMEND_OR_COMMA
 				simpleCase = false
 				r = processValueOfValue(inp, r, currentName, i, endPos, params, true)
+				currentName = ""
 			case S_VALUE_OF_NAME:
 				state = S_PARAMEND_OR_COMMA
 				currentName = keyName
 			case S_VALUE_OF_OTHER:
 				state = S_PARAMEND_OR_COMMA
 			default:
-				presentError(inp, i, "unexpected "+keyName)
+				presentError(inp, i, "unexpected \""+keyName+"\" ["+strconv.Itoa(state)+"]")
 			}
 			if simpleCase {
-				outp = append(outp, '"')
-				outp = processStringValue(inp, outp, params, i, endPos)
-				outp = append(outp, '"')
+				r = append(r, '"')
+				r = processStringValue(inp, r, params, i, endPos)
+				r = append(r, '"')
 			}
 			i = endPos
 		case '[':
@@ -277,7 +295,11 @@ func processOpenshiftTemplate(inp []byte, params map[string]string) (r []byte) {
 }
 
 func readTemplate(name string) map[string]string {
-	return make(map[string]string)
+	err := dvparser.ReadPropertiesFileWithEnvironmentVariablesInCurrentDirectory(name)
+	if err != nil {
+		panic(err.Error())
+	}
+	return dvparser.GlobalProperties
 }
 
 func main() {

@@ -43,7 +43,7 @@
       "kind": "Service",
       "apiVersion": "v1",
       "metadata": {
-        "name": "${SERVICE_NAME}",
+        "name": "access-control",
         "annotations": {
           "author": "Dobryvechir"
         }
@@ -64,7 +64,7 @@
           }
         ],
         "selector": {
-          "name": "${SERVICE_NAME}"
+          "name": "access-control"
         },
         "type": "ClusterIP",
         "sessionAffinity": "None"
@@ -74,15 +74,15 @@
       "kind": "Route",
       "apiVersion": "v1",
       "metadata": {
-        "name": "${SERVICE_NAME}",
+        "name": "access-control",
         "labels": {
-          "name": "${SERVICE_NAME}"
+          "name": "access-control"
         }
       },
       "spec": {
         "to": {
           "kind": "Service",
-          "name": "${SERVICE_NAME}"
+          "name": "access-control"
         },
         "port": {
           "targetPort": "tcp"
@@ -93,15 +93,15 @@
       "kind": "Route",
       "apiVersion": "v1",
       "metadata": {
-        "name": "${SERVICE_NAME}-monitoring",
+        "name": "access-control-monitoring",
         "labels": {
-          "name": "${SERVICE_NAME}-monitoring"
+          "name": "access-control-monitoring"
         }
       },
       "spec": {
         "to": {
           "kind": "Service",
-          "name": "${SERVICE_NAME}"
+          "name": "access-control"
         },
         "port": {
           "targetPort": "monitoring"
@@ -112,7 +112,7 @@
       "kind": "DeploymentConfig",
       "apiVersion": "v1",
       "metadata": {
-        "name": "${SERVICE_NAME}"
+        "name": "access-control"
       },
       "spec": {
         "strategy": {
@@ -120,7 +120,7 @@
           "rollingParams": {
             "updatePeriodSeconds": 1,
             "intervalSeconds": 1,
-            "timeoutSeconds": "${SCALING_UP_TIMEOUT}",
+            "timeoutSeconds": "600",
             "maxUnavailable": "25%",
             "maxSurge": "25%"
           }
@@ -130,22 +130,22 @@
             "type": "ConfigChange"
           }
         ],
-        "replicas": "${{REPLICAS}}",
+        "replicas": "1",
         "selector": {
-          "name": "${SERVICE_NAME}",
-          "deploymentconfig": "${SERVICE_NAME}"
+          "name": "access-control",
+          "deploymentconfig": "access-control"
         },
         "template": {
           "metadata": {
             "labels": {
-              "name": "${SERVICE_NAME}",
-              "deploymentconfig": "${SERVICE_NAME}"
+              "name": "access-control",
+              "deploymentconfig": "access-control"
             },
             "annotations": {
               "prometheus.io/path": "/management/prometheus",
               "prometheus.io/port": "8081",
               "prometheus.io/scrape": "true",
-              "scheduler.alpha.kubernetes.io/affinity": "{\"podAntiAffinity\": {\"${POD_AFFINITY_TERM}DuringSchedulingIgnoredDuringExecution\": [{\"weight\": 100, \"labelSelector\": {\"matchExpressions\": [{\"key\": \"name\", \"operator\": \"In\", \"values\": [ \"${SERVICE_NAME}\" ] } ] }, \"topologyKey\": \"${TOPOLOGY_KEY}\" } ] }}"
+              "scheduler.alpha.kubernetes.io/affinity": "{\"podAntiAffinity\": {\"preferredDuringSchedulingIgnoredDuringExecution\": [{\"weight\": 100, \"labelSelector\": {\"matchExpressions\": [{\"key\": \"name\", \"operator\": \"In\", \"values\": [ \"DV-control\" ] } ] }, \"topologyKey\": \"kubernetes.io/hostname\" } ] }}"
             }
           },
           "spec": {
@@ -153,18 +153,18 @@
               {
                 "name": "client-credentials",
                 "secret": {
-                  "secretName": "${SERVICE_NAME}-client-credentials"
+                  "secretName": "access-control-client-credentials"
                 }
               }
             ],
             "containers": [
               {
                 "name": "access-control",
-                "image": "${IMAGE_REPOSITORY}:${TAG}",
+                "image": "http:\ddom.com:latest",
                 "volumeMounts": [
                   {
                     "name": "client-credentials",
-                    "mountPath": "${SECRET_PATH}",
+                    "mountPath": "/etc/secret",
                     "readOnly": true
                   }
                 ],
@@ -172,11 +172,11 @@
                   "tcpSocket": {
                     "port": 8080
                   },
-                  "initialDelaySeconds":"${LIVENESS_PROBE_DELAY}",
-                  "timeoutSeconds": "${LIVENESS_PROBE_TIMEOUT_SECONDS}",
+                  "initialDelaySeconds":"90",
+                  "timeoutSeconds": "5",
                   "periodSeconds": 15,
                   "successThreshold": 1,
-                  "failureThreshold": "${{LIVENESS_PROBE_FAILURE_THRESHOLD}}"
+                  "failureThreshold": "20"
                 },
                 "readinessProbe": {
                   "httpGet": {
@@ -184,11 +184,11 @@
                     "port": 8081,
                     "scheme": "HTTP"
                   },
-                  "initialDelaySeconds": "${READINESS_PROBE_DELAY}",
-                  "timeoutSeconds": "${READINESS_PROBE_TIMEOUT_SECONDS}",
+                  "initialDelaySeconds": "90",
+                  "timeoutSeconds": "5",
                   "periodSeconds": 15,
                   "successThreshold": 1,
-                  "failureThreshold": "${{READINESS_PROBE_FAILURE_THRESHOLD}}"
+                  "failureThreshold": "5"
                 },
                 "env": [
                   {
@@ -203,7 +203,7 @@
                     "name": "CLIENT_ID",
                     "valueFrom": {
                       "secretKeyRef": {
-                        "name": "registered-client-${SERVICE_NAME}",
+                        "name": "registered-client-access-control",
                         "key": "client-id"
                       }
                     }
@@ -213,7 +213,7 @@
                     "valueFrom": {
                       "secretKeyRef": {
                         "key": "client-secret",
-                        "name": "registered-client-${SERVICE_NAME}"
+                        "name": "registered-client-access-control"
                       }
                     }
                   }
@@ -230,12 +230,12 @@
                 ],
                 "resources": {
                   "requests": {
-                    "memory": "${MEMORY_REQUEST}",
-                    "cpu": "${CPU_REQUEST}"
+                    "memory": "300Mi",
+                    "cpu": "600m"
                   },
                   "limits": {
-                    "memory": "${MEMORY_LIMIT}",
-                    "cpu": "${CPU_LIMIT}"
+                    "memory": "1Gi",
+                    "cpu": "1000m"
                   }
                 },
                 "imagePullPolicy": "Always"
@@ -251,9 +251,9 @@
       "kind": "ConfigMap",
       "apiVersion": "v1",
       "metadata": {
-        "name": "${SERVICE_NAME}.monitoring-config",
+        "name": "access-control.monitoring-config",
         "labels" : {
-          "app" : "${SERVICE_NAME}"
+          "app" : "access-control"
         }
       },
       "data": {
