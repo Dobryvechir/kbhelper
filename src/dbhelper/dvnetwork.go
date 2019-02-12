@@ -7,40 +7,49 @@ import (
 	"github.com/Dobryvechir/dvserver/src/dvnet"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
 	"os"
+	"strings"
 )
 
 var copyright = "Copyright by Volodymyr Dobryvechir 2019"
 
 func main() {
-	l := len(os.Args)
-	if l < 3 {
+	args := dvparser.InitAndReadCommandLine()
+	l := len(args)
+	if l < 1 {
 		fmt.Println(copyright)
-		fmt.Println("dvnetwork <properties file> <url property> <method (default - GET)> <header,,,list> <body> <addMessage>")
+		fmt.Println("dvnetwork <url property> <method (default - GET)> <header,,,list> <body> <addMessage>")
 		return
 	}
-	params := dvparser.ReadPropertiesOrPanic(os.Args[1])
-	url := os.Args[2]
+	params := dvparser.GlobalProperties
+	url := args[0]
 	if params[url] != "" {
 		url = params[url]
 	}
+	if strings.Index(url, "http") != 0 {
+		err := dvnet.UpdatePropertiesThruNetRequest(url)
+		if err != nil {
+			panic("Error: " + err.Error())
+		}
+		return
+	}
 	method := "GET"
-	if l > 3 {
-		method = os.Args[3]
+	if l > 1 {
+		method = args[1]
 	}
 	headers := make(map[string]string)
-	if l > 4 {
-		dvparser.PutDescribedAttributesToMapFromCommaSeparatedList(params, headers, os.Args[4])
+	if l > 2 {
+		dvparser.PutDescribedAttributesToMapFromCommaSeparatedList(params, headers, args[2])
 	}
 	body := ""
-	if l > 5 {
-		body = os.Args[5]
+	if l > 3 {
+		body = args[3]
 		if params[body] != "" {
 			body = params[body]
 		}
 	}
 	addMessage := ""
-	if l > 6 {
-		addMessage = os.Args[6]
+	if l > 4 {
+		addMessage = os.Args[4]
 	}
 	data, err := dvnet.NewRequest(method, url, body, headers)
 	if err != nil {

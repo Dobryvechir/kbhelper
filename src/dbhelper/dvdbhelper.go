@@ -26,7 +26,7 @@ type AccessToken struct {
 	scope              string `json:"scope"`
 }
 
-func readCredentials(fileName string) (user string, ps string) {
+func readCredentials(fileName string, pathName string) (user string, ps string) {
 	file, err := os.Open(fileName)
 	if err != nil {
 		panic("File " + fileName + " not found")
@@ -44,6 +44,10 @@ func readCredentials(fileName string) (user string, ps string) {
 					panic("Fatal error")
 				}
 				ps = string(str)
+				err = ioutil.WriteFile(pathName+"/password", []byte(ps), 0644)
+				if err != nil {
+					fmt.Printf("Cannot write password file " + err.Error())
+				}
 				if user != "" {
 					return
 				}
@@ -54,6 +58,10 @@ func readCredentials(fileName string) (user string, ps string) {
 					panic("Fatal error")
 				}
 				user = string(str)
+				err = ioutil.WriteFile(pathName+"/user", []byte(user), 0644)
+				if err != nil {
+					fmt.Printf("Cannot write user file " + err.Error())
+				}
 				if ps != "" {
 					return
 				}
@@ -65,15 +73,7 @@ func readCredentials(fileName string) (user string, ps string) {
 }
 
 func presentDbProperties(params map[string]string, user string, ps string, m2mToken string) {
-	err := ioutil.WriteFile("password", []byte(ps), 0644)
-	if err != nil {
-		fmt.Printf("Cannot write password file " + err.Error())
-	}
-	err = ioutil.WriteFile("user", []byte(user), 0644)
-	if err != nil {
-		fmt.Printf("Cannot write user file " + err.Error())
-	}
-	err = ioutil.WriteFile("m2m", []byte(m2mToken), 0644)
+	err := ioutil.WriteFile("m2m", []byte(m2mToken), 0644)
 	if err != nil {
 		fmt.Printf("Cannot write m2m file " + err.Error())
 	}
@@ -112,14 +112,15 @@ func getM2MToken(m2mTokenUrl string, username string, passwrd string) (string, e
 }
 
 func main() {
-	l := len(os.Args)
-	if l < 3 {
+	args := dvparser.InitAndReadCommandLine()
+	l := len(args)
+	if l < 2 {
 		fmt.Println(copyright)
-		fmt.Println("dvdbhelper <properties file> <credential file>")
+		fmt.Println("dvdbhelper <credential file> <secret-path>")
 		return
 	}
-	params := dvparser.ReadPropertiesOrPanic(os.Args[1])
-	username, passwrd := readCredentials(os.Args[2])
+	username, passwrd := readCredentials(args[0], args[1])
+	params := dvparser.GlobalProperties
 	m2mTokenUrl := params["M2MTOKEN_URL"]
 	if m2mTokenUrl == "" {
 		panic("Parameter M2MTOKEN_URL is not defined in the properties")

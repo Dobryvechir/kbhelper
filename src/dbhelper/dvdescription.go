@@ -5,24 +5,24 @@ package main
 import (
 	"fmt"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
-	"os"
 )
 
 var copyright = "Copyright by Volodymyr Dobryvechir 2019"
 
 func main() {
-	l := len(os.Args)
-	if l < 2 {
+	args := dvparser.InitAndReadCommandLine()
+	l := len(args)
+	if l < 1 {
 		fmt.Println(copyright)
-		fmt.Println("dvdescription <description file> <properties file>")
+		fmt.Println("dvdescription <description file> <output file optionally>")
 		return
 	}
 	output := ""
-	if l > 2 {
-		output = os.Args[2]
+	if l > 1 {
+		output = args[1]
 	}
 	lookNames := map[string]string{"MICROSERVICE_NAME": "MICROSERVICE_NAME", "OPENSHIFT_MICROSERVICE_NAME": "OPENSHIFT_MICROSERVICE_NAME"}
-	result, err := dvparser.LookInDescriptionFile(os.Args[1], lookNames, true)
+	result, err := dvparser.LookInDescriptionFile(args[0], lookNames, true)
 	if err == nil {
 		err = dvparser.PresentMapAsProperties(result, output)
 	}
