@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/Dobryvechir/dvserver/src/dvnet"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
-	"os"
 	"strings"
 )
 
@@ -49,7 +48,7 @@ func main() {
 	}
 	addMessage := ""
 	if l > 4 {
-		addMessage = os.Args[4]
+		addMessage = args[4]
 	}
 	data, err := dvnet.NewRequest(method, url, body, headers)
 	if err != nil {
