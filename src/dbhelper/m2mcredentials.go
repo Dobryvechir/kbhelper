@@ -68,7 +68,7 @@ func main() {
 	l := len(args)
 	if l < 2 {
 		fmt.Println(copyright)
-		fmt.Println("dvdbhelper <credential file> <secret-path>")
+		fmt.Println("m2mcredentials <credential file> <secret-path>")
 		return
 	}
 	m2mPath := args[1]
