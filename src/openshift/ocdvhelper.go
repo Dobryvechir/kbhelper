@@ -14,6 +14,13 @@ var copyright = "Copyright by Volodymyr Dobryvechir 2019"
 
 const (
 	S_INITIAL = iota
+	V_EXPECT_COLON
+	V_EXPECT_VALUE
+	V_KEY
+	V_KEY_COLON
+	V_VALUE
+	V_COMMA_OR_END
+
 	S_EXPECT_PARAMS
 	S_EXPECT_PARAMS_COLON
 	S_EXPECT_PARAMS_SQUARE_OPEN
@@ -154,6 +161,7 @@ func processOpenshiftTemplate(inp []byte, params map[string]string) (r []byte) {
 	state := S_INITIAL
 	wordStart := 0
 	currentName := ""
+	level := 0
 	for i := 0; i < n; i++ {
 		c := inp[i]
 		if c <= 32 {
@@ -184,6 +192,9 @@ func processOpenshiftTemplate(inp []byte, params map[string]string) (r []byte) {
 				state = S_EXPECT_PARAMS
 			case S_EXPECT_PARAM_OPEN:
 				state = S_KEY
+			case V_EXPECT_VALUE:
+				state = V_KEY
+				level++
 			default:
 				presentError(inp, i, "unexpected {")
 			}
@@ -201,6 +212,11 @@ func processOpenshiftTemplate(inp []byte, params map[string]string) (r []byte) {
 						presentError(inp, i, "value for param "+currentName+" is not specified")
 					}
 				}
+			case V_COMMA_OR_END:
+				level--
+				if level < 0 {
+					presentError(inp, i, "unexpected }, no parameters")
+				}
 			default:
 				presentError(inp, i, "unexpected }")
 			}
@@ -214,6 +230,8 @@ func processOpenshiftTemplate(inp []byte, params map[string]string) (r []byte) {
 				state = S_VALUE_OF_NAME
 			case S_KEY_COLON_OF_OTHER:
 				state = S_VALUE_OF_OTHER
+			case V_EXPECT_COLON:
+				state = V_EXPECT_VALUE
 			default:
 				presentError(inp, i, "unexpected :")
 			}
@@ -228,10 +246,11 @@ func processOpenshiftTemplate(inp []byte, params map[string]string) (r []byte) {
 			keyName := string(inp[i:endPos])
 			switch state {
 			case S_EXPECT_PARAMS:
-				if keyName != "parameters" {
-					presentError(inp, i, "`parameters` expected")
+				if keyName == "parameters" {
+					state = S_EXPECT_PARAMS_COLON
+				} else {
+					state = V_EXPECT_COLON
 				}
-				state = S_EXPECT_PARAMS_COLON
 			case S_KEY:
 				switch keyName {
 				case "name":
@@ -251,6 +270,10 @@ func processOpenshiftTemplate(inp []byte, params map[string]string) (r []byte) {
 				currentName = keyName
 			case S_VALUE_OF_OTHER:
 				state = S_PARAMEND_OR_COMMA
+			case V_EXPECT_VALUE:
+				state = V_COMMA_OR_END
+			case V_KEY:
+				state = V_EXPECT_COLON
 			default:
 				presentError(inp, i, "unexpected \""+keyName+"\" ["+strconv.Itoa(state)+"]")
 			}
@@ -280,6 +303,12 @@ func processOpenshiftTemplate(inp []byte, params map[string]string) (r []byte) {
 				state = S_EXPECT_PARAM_OPEN
 			case S_PARAMEND_OR_COMMA:
 				state = S_KEY
+			case V_COMMA_OR_END:
+				if level == 0 {
+					state = S_EXPECT_PARAMS
+				} else {
+					state = V_KEY
+				}
 			default:
 				presentError(inp, i, "unexpected ,")
 			}
