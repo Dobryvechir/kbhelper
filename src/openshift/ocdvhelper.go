@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
 	"io/ioutil"
-	"os"
 	"strconv"
 )
 
@@ -100,7 +99,10 @@ func processStringValue(inp []byte, outp []byte, params map[string]string, pos i
 	return outp
 }
 
-func processOpenshiftSimplePart(inp []byte, outp []byte, params map[string]string, pos int) []byte {
+func processOpenshiftSimplePart(inp []byte, outp []byte, params map[string]string, pos int, exclude map[string]bool) []byte {
+	for k, _ := range exclude {
+		params[k] = "${" + k + "}"
+	}
 	return processStringValue(inp, outp, params, pos, len(inp))
 }
 
@@ -155,13 +157,14 @@ func findClosingQuote(inp []byte, pos int) int {
 	return -1
 }
 
-func processOpenshiftTemplate(inp []byte, params map[string]string) (r []byte) {
+func processOpenshiftTemplate(inp []byte, params map[string]string, isDebug bool) (r []byte) {
 	n := len(inp)
 	r = make([]byte, 0, n)
 	state := S_INITIAL
 	wordStart := 0
 	currentName := ""
 	level := 0
+	standardParams := make(map[string]bool)
 	for i := 0; i < n; i++ {
 		c := inp[i]
 		if c <= 32 {
@@ -268,6 +271,9 @@ func processOpenshiftTemplate(inp []byte, params map[string]string) (r []byte) {
 			case S_VALUE_OF_NAME:
 				state = S_PARAMEND_OR_COMMA
 				currentName = keyName
+				if !isDebug {
+					standardParams[keyName] = true
+				}
 			case S_VALUE_OF_OTHER:
 				state = S_PARAMEND_OR_COMMA
 			case V_EXPECT_VALUE:
@@ -293,7 +299,7 @@ func processOpenshiftTemplate(inp []byte, params map[string]string) (r []byte) {
 		case ']':
 			switch state {
 			case S_PARAMS_END_OR_COMMA:
-				return processOpenshiftSimplePart(inp, r, params, i)
+				return processOpenshiftSimplePart(inp, r, params, i, standardParams)
 			default:
 				presentError(inp, i, "unexpected ]")
 			}
@@ -332,22 +338,26 @@ func readTemplate(name string) map[string]string {
 }
 
 func main() {
-	l := len(os.Args)
-	if l < 4 {
+	args := dvparser.InitAndReadCommandLine()
+	l := len(args)
+	if l < 2 {
 		fmt.Println(copyright)
-		fmt.Println("ocdvhelper <openshift template input> <openshift template output> <properties file>")
+		fmt.Println("ocdvhelper <openshift template input> <openshift template output> <optional: debug>")
 		return
 	}
-	templateInput := os.Args[1]
-	templateOutput := os.Args[2]
-	propertiesFile := os.Args[3]
+	templateInput := args[0]
+	templateOutput := args[1]
+	isDebug := false
+	if l > 2 && args[2] == "debug" {
+		isDebug = true
+	}
 	data, e := ioutil.ReadFile(templateInput)
 	if e != nil {
 		fmt.Printf("Cannot read file %s: %s\n", templateInput, e.Error())
 		panic("Fatal error")
 	}
-	params := readTemplate(propertiesFile)
-	res := processOpenshiftTemplate(data, params)
+	params := dvparser.GlobalProperties
+	res := processOpenshiftTemplate(data, params, isDebug)
 	e = ioutil.WriteFile(templateOutput, res, 0664)
 	if e != nil {
 		fmt.Printf("Cannot write file %s: %s\n", templateOutput, e.Error())

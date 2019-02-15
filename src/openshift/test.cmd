@@ -1,1 +1,1 @@
-ocdvhelper template.json t.json template.properties
+ocdvhelper template.json t.json 
