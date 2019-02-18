@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/Dobryvechir/dvserver/src/dvnet"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
+	"strconv"
 	"strings"
 )
 
@@ -16,7 +17,7 @@ func main() {
 	l := len(args)
 	if l < 1 {
 		fmt.Println(copyright)
-		fmt.Println("dvnetwork <url property> <method (default - GET)> <header,,,list> <body> <addMessage>")
+		fmt.Println("dvnetwork <url property> <method (default - GET)> <header,,,list> <body> <addMessage> <repeats>")
 		return
 	}
 	params := dvparser.GlobalProperties
@@ -50,7 +51,15 @@ func main() {
 	if l > 4 {
 		addMessage = args[4]
 	}
-	data, err := dvnet.NewRequest(method, url, body, headers)
+	repeats := 0
+	if l > 5 {
+		if nrepeats, err1 := strconv.Atoi(args[5]); err1 != nil || nrepeats < 0 {
+			fmt.Printf("Incorrect number of repeats: %s\n", args[5])
+		} else {
+			repeats = nrepeats
+		}
+	}
+	data, err := dvnet.NewRequest(method, url, body, headers, repeats)
 	if err != nil {
 		fmt.Printf("Error: %s", err.Error())
 	} else {

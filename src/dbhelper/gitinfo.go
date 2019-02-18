@@ -16,29 +16,29 @@ import (
 var copyright = "Copyright by Volodymyr Dobryvechir 2019"
 
 type GitInfo struct {
-      ServiceName string
-      Branch string
-      Artifactory string
-      Latest string
-      LatestTime string
-      GitFolder string
+	ServiceName string
+	Branch      string
+	Artifactory string
+	Latest      string
+	LatestTime  string
+	GitFolder   string
 }
 
 func tryFolder(string folder) (gitInfo *GitInfo, ok bool) {
-	data, err:=ioutil.ReadFile(folder + "/.git/HEAD")
-        if err!=nil {
-              return nil, false
-        }       
-        s := string(data)
-        search:="heads/"
-        r:=strings.Index(s, search)
-        if r<0 {
-             return nil, false   
-        }                  
-	branch:=strings.TrimSpace(s[r + len(search):])
-        gitInfo:=&GitInfo{Branch: branch, GitFolder: folder}
-        ok:=true
-        return
+	data, err := ioutil.ReadFile(folder + "/.git/HEAD")
+	if err != nil {
+		return nil, false
+	}
+	s := string(data)
+	search := "heads/"
+	r := strings.Index(s, search)
+	if r < 0 {
+		return nil, false
+	}
+	branch := strings.TrimSpace(s[r+len(search):])
+	gitInfo := &GitInfo{Branch: branch, GitFolder: folder}
+	ok := true
+	return
 }
 
 func tryFolders() *GitInfo {
@@ -46,12 +46,12 @@ func tryFolders() *GitInfo {
 }
 
 func readGitInfo() (gitInfo *GitInfo, err error) {
-      gitInfo:=tryFolders()
-      if gitInfo==nil {
-         err = errors.New("No git folder found neither in the current folder nor by the global variables")
-         return
-      } 
-      return
+	gitInfo := tryFolders()
+	if gitInfo == nil {
+		err = errors.New("No git folder found neither in the current folder nor by the global variables")
+		return
+	}
+	return
 }
 
 func main() {
@@ -63,9 +63,9 @@ func main() {
 		return
 	}
 	//options := args[0]
-        gitInfo, err := readGitInfo() 
-        if err!=nil {
-             panic("Git error: "+err.Error())
-        }
+	gitInfo, err := readGitInfo()
+	if err != nil {
+		panic("Git error: " + err.Error())
+	}
 	fmt.Printf("GIT_BRANCH=%s\nGIT_ARTIFACTORY=%s\nGIT_LATEST=%s\n", gitInfo.Branch, gitInfo.Artifactory, gitInfo.Latest)
 }

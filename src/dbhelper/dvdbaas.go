@@ -30,7 +30,7 @@ func presentDbProperties(params map[string]string, m2mToken string, secretPath s
 		panic("Parameter DBAAS_REQUEST is not defined in the properties")
 	}
 	headers := map[string]string{"Authorization": m2mToken, "Content-Type": "application/json;charset=UTF-8", "Accept": "application/json, application/x-jackson-smile, application/cbor, application/*+json", "Tenant": tenant}
-	res, err := dvnet.NewRequest("PUT", url, body, headers)
+	res, err := dvnet.NewRequest("PUT", url, body, headers, 30)
 	if err != nil {
 		panic("Cannot get db properties: " + err.Error())
 	}
