@@ -100,8 +100,13 @@ func processStringValue(inp []byte, outp []byte, params map[string]string, pos i
 }
 
 func processOpenshiftSimplePart(inp []byte, outp []byte, params map[string]string, pos int, exclude map[string]bool) []byte {
-	for k, _ := range exclude {
-		params[k] = "${" + k + "}"
+	if exclude != nil {
+		for k, _ := range exclude {
+			params[k] = "${" + k + "}"
+		}
+	}
+	if outp == nil {
+		outp = make([]byte, 0, len(inp)+1024)
 	}
 	return processStringValue(inp, outp, params, pos, len(inp))
 }
@@ -342,14 +347,22 @@ func main() {
 	l := len(args)
 	if l < 2 {
 		fmt.Println(copyright)
-		fmt.Println("ocdvhelper <openshift template input> <openshift template output> <optional: debug>")
+		fmt.Println("ocdvhelper <openshift template input> <openshift template output> <optional: debug | noparameters>")
 		return
 	}
 	templateInput := args[0]
 	templateOutput := args[1]
 	isDebug := false
-	if l > 2 && args[2] == "debug" {
-		isDebug = true
+	noParameters := false
+	if l > 2 {
+		options := args[2]
+		if options == "debug" {
+			isDebug = true
+		} else if options == "noparameters" {
+			noParameters = true
+		} else {
+			panic("You specified options = " + options + " but only debug or noparameters options are accepted")
+		}
 	}
 	data, e := ioutil.ReadFile(templateInput)
 	if e != nil {
@@ -357,7 +370,12 @@ func main() {
 		panic("Fatal error")
 	}
 	params := dvparser.GlobalProperties
-	res := processOpenshiftTemplate(data, params, isDebug)
+	var res []byte
+	if noParameters {
+		res = processOpenshiftSimplePart(data, nil, params, 0, nil)
+	} else {
+		res = processOpenshiftTemplate(data, params, isDebug)
+	}
 	e = ioutil.WriteFile(templateOutput, res, 0664)
 	if e != nil {
 		fmt.Printf("Cannot write file %s: %s\n", templateOutput, e.Error())
