@@ -6,11 +6,22 @@ import (
 	"fmt"
 	"github.com/Dobryvechir/dvserver/src/dvnet"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
+	"io/ioutil"
 	"strconv"
 	"strings"
 )
 
 var copyright = "Copyright by Volodymyr Dobryvechir 2019"
+
+const (
+	Authorization = "Authorization"
+	ContentType   = "Content-Type"
+)
+
+func getM2MToken(secretPath string) (string, error) {
+	m2mToken, err := ioutil.ReadFile(secretPath + "/m2mtoken")
+	return string(m2mToken), err
+}
 
 func main() {
 	args := dvparser.InitAndReadCommandLine()
@@ -39,6 +50,17 @@ func main() {
 	headers := make(map[string]string)
 	if l > 2 {
 		dvparser.PutDescribedAttributesToMapFromCommaSeparatedList(params, headers, args[2])
+	}
+	if headers[Authorization] == "M2M" {
+		secretPath := params["MICROSERVICE_PATH"]
+		if secretPath == "" {
+			panic("Parameter MICROSERVICE_PATH is not defined in the properties")
+		}
+		m2mToken, err := getM2MToken(secretPath)
+		headers[Authorization] = m2mToken
+		if err != nil {
+			panic("Cannot read M2M token" + err.Error())
+		}
 	}
 	body := ""
 	if l > 3 {
