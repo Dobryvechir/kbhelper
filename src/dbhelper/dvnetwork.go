@@ -85,6 +85,17 @@ func main() {
 	if err != nil {
 		fmt.Printf("Error: %s", err.Error())
 	} else {
-		fmt.Printf("%s%s\n", addMessage, string(data))
+		if addMessage == "" || addMessage[:1] != "@" {
+			fmt.Printf("%s%s\n", addMessage, string(data))
+		} else {
+			properties := dvparser.CloneGlobalProperties()
+			properties["RESPONSE"] = string(data)
+			addMessage, err = dvparser.SmartReadFileAsString(addMessage[1:], properties)
+			if err != nil {
+				fmt.Printf("Error: %s", err.Error())
+			} else {
+				fmt.Printf("%s\n", addMessage)
+			}
+		}
 	}
 }
