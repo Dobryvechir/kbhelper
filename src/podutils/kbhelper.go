@@ -4,32 +4,33 @@ package main
 
 import (
 	"fmt"
-	"os"
+	"github.com/Dobryvechir/dvserver/src/dvparser"
 )
 
 var copyright = "Copyright by Volodymyr Dobryvechir 2019"
 
 func main() {
-	l := len(os.Args)
-	if l < 2 {
+	args := dvparser.InitAndReadCommandLine()
+	l := len(args)
+	if l < 1 {
 		fmt.Println(copyright)
 		fmt.Println("kbhelper <podname> <podlist, pods.txt by default> <cmd name, r.cmd by default> <command call by default>")
 		fmt.Println("or kbhelper - <filename to convert all cr/lf to lf for linux")
 		fmt.Println("or kbhelper + <filename> <line to be added if it is not present yet, everything in Linux style>")
 		return
 	}
-	podName := os.Args[1]
+	podName := args[0]
 	podList := "pods.txt"
 	podCmd := "r.cmd"
 	podCaller := "call"
+	if l >= 2 {
+		podList = args[1]
+	}
 	if l >= 3 {
-		podList = os.Args[2]
+		podCmd = args[2]
 	}
 	if l >= 4 {
-		podCmd = os.Args[3]
-	}
-	if l >= 5 {
-		podCaller = os.Args[4]
+		podCaller = args[3]
 	}
 	switch podName {
 	case "-":
