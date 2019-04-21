@@ -1,0 +1,3 @@
+{
+   "places":[{"source":"a.txt","items":[{"match":"pi"}]},{"source":"b.txt","items":[{"match":"ro"}]}]
+}

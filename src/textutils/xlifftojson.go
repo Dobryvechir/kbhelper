@@ -41,6 +41,23 @@ func readXliffDocument(data []byte) (*XliffDocument, error) {
 	return doc, err
 }
 
+func readJsonData(data []byte) (map[string]string, error) {
+        return nil,nil
+}
+
+func convertJsonToXliff(doc map[string]string) (res []byte, err error) {
+        res = make([]byte, 0, 100000)
+        indent:="			"
+        for k, v:=range doc {
+		s:=indent + "<trans-unit datatype=\"html\" id=\""+k + "\">" +
+		    indent + "     <source>"+k+"</source>" +
+		    indent + "    <target>"+v+"</target>" +
+		    indent + "</trans-unit>"
+                res = append(res, []byte(s)...)
+        }
+        return
+}
+
 func convertXliffToJson(doc *XliffDocument) (res []byte, err error) {
 	transUnits := doc.File.Body.TransUnits
 	n := len(transUnits)
@@ -64,7 +81,7 @@ func convertXliffToJson(doc *XliffDocument) (res []byte, err error) {
 func main() {
 	if len(os.Args) < 3 {
 		fmt.Printf(copyright)
-		fmt.Printf("xlifftojson <input xliff file> <output json file name>")
+		fmt.Printf("xlifftojson <input xliff file or json> <output json file name or xliff>")
 		return
 	}
 	xmlData, err := ioutil.ReadFile(os.Args[1])
@@ -72,17 +89,34 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	doc, err1 := readXliffDocument(xmlData)
-	if err1 != nil {
-		fmt.Println(err1.Error())
-		return
-	}
-	json, err2 := convertXliffToJson(doc)
-	if err2 != nil {
-		fmt.Println(err2.Error())
-		return
-	}
-	err = ioutil.WriteFile(os.Args[2], json, 0466)
+        var res []byte
+        if (strings.HasSuffix(strings.ToLower(os.Args[1]),".xliff")) {
+		doc, err1 := readXliffDocument(xmlData)
+		if err1 != nil {
+			fmt.Println(err1.Error())
+			return
+		}
+        
+		res, err = convertXliffToJson(doc)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+        } else {
+		doc,err1: = readJsonData(xmlData)
+		if err1 != nil {
+			fmt.Println(err1.Error())
+			return
+		}
+        
+		res, err = convertJsonToXliff(doc)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+           
+        }
+	err = ioutil.WriteFile(os.Args[2], res, 0466)
 	if err != nil {
 		fmt.Println(err)
 		return
