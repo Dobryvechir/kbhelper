@@ -4,9 +4,12 @@ package main
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strconv"
+	"strings"
 )
 
 var copyright = "Copyright by Volodymyr Dobryvechir 2019"
@@ -24,9 +27,9 @@ type XliffDocumentBody struct {
 }
 
 type XliffDocumentFile struct {
-	XMLName xml.Name          `xml:"file"`
-        Datatype string           `xml:"datatype,attr"`
-	Body    XliffDocumentBody `xml:"body"`
+	XMLName  xml.Name          `xml:"file"`
+	Datatype string            `xml:"datatype,attr"`
+	Body     XliffDocumentBody `xml:"body"`
 }
 
 type XliffDocument struct {
@@ -41,21 +44,104 @@ func readXliffDocument(data []byte) (*XliffDocument, error) {
 	return doc, err
 }
 
-func readJsonData(data []byte) (map[string]string, error) {
-        return nil,nil
+func readJsonData(data []byte) (res map[string]string, err error) {
+	res = make(map[string]string)
+	n := len(data)
+	exp := byte('{')
+	k := ""
+	for i := 0; i < n; i++ {
+		c := data[i]
+		if c <= 32 {
+			continue
+		}
+		if c != exp {
+			if exp == ',' && c == '}' {
+				return
+			}
+			err = errors.New("Expected " + string([]byte{exp}) + " but found " + string([]byte{c}))
+			return
+		}
+		switch exp {
+		case '"':
+			i++
+			pos := i
+			extra := 0
+			for ; i < n; i++ {
+				d := data[i]
+				if d == '\\' {
+					i++
+					extra++
+				} else if d == '"' {
+					break
+				}
+			}
+			if i == n {
+				err = errors.New("Unclosed quote at " + strconv.Itoa(pos))
+				return
+			}
+			v := string(data[pos:i])
+			if k == "" {
+				if v == "" {
+					err = errors.New("Empty key is not allowed")
+					return
+				}
+				k = v
+				exp = ':'
+			} else {
+				res[k] = v
+				k = ""
+				exp = ','
+			}
+		case ':':
+			exp = '"'
+		case '{', ',':
+			exp = '"'
+		}
+	}
+	err = errors.New("Unclosed json with final }")
+	return
 }
 
 func convertJsonToXliff(doc map[string]string) (res []byte, err error) {
-        res = make([]byte, 0, 100000)
-        indent:="			"
-        for k, v:=range doc {
-		s:=indent + "<trans-unit datatype=\"html\" id=\""+k + "\">" +
-		    indent + "     <source>"+k+"</source>" +
-		    indent + "    <target>"+v+"</target>" +
-		    indent + "</trans-unit>"
-                res = append(res, []byte(s)...)
-        }
-        return
+	res = make([]byte, 0, 100000)
+	indent := "			"
+	for k, v := range doc {
+		s := indent + "<trans-unit datatype=\"html\" id=\"" + k + "\">" +
+			indent + "     <source>" + k + "</source>" +
+			indent + "    <target>" + v + "</target>" +
+			indent + "</trans-unit>"
+		res = append(res, []byte(s)...)
+	}
+	return
+}
+
+func getJsonEscapedByteArray(src []byte) []byte {
+	n := len(src)
+	extra := 0
+	for i := 0; i < n; i++ {
+		c := src[i]
+		if c == '"' || c == '\\' {
+			extra++
+		}
+	}
+	if extra == 0 {
+		return src
+	}
+	dst := make([]byte, n+extra)
+	j := 0
+	for i := 0; i < n; i++ {
+		c := src[i]
+		if c == '"' || c == '\\' {
+			dst[j] = '\\'
+			j++
+			dst[j] = c
+			j++
+		} else {
+			dst[j] = c
+			j++
+		}
+	}
+	return dst
 }
 
 func convertXliffToJson(doc *XliffDocument) (res []byte, err error) {
@@ -71,7 +157,7 @@ func convertXliffToJson(doc *XliffDocument) (res []byte, err error) {
 		res = append(res, '"')
 		res = append(res, []byte(unit.Id)...)
 		res = append(res, '"', ':', ' ', '"')
-		res = append(res, []byte(unit.Target)...)
+		res = append(res, getJsonEscapedByteArray([]byte(unit.Target))...)
 		res = append(res, '"')
 	}
 	res = append(res, 13, 10, '}', 13, 10)
@@ -89,33 +175,33 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-        var res []byte
-        if (strings.HasSuffix(strings.ToLower(os.Args[1]),".xliff")) {
+	var res []byte
+	if strings.HasSuffix(strings.ToLower(os.Args[1]), ".xliff") {
 		doc, err1 := readXliffDocument(xmlData)
 		if err1 != nil {
 			fmt.Println(err1.Error())
 			return
 		}
-        
+
 		res, err = convertXliffToJson(doc)
 		if err != nil {
 			fmt.Println(err.Error())
 			return
 		}
-        } else {
-		doc,err1: = readJsonData(xmlData)
+	} else {
+		doc, err1 := readJsonData(xmlData)
 		if err1 != nil {
 			fmt.Println(err1.Error())
 			return
 		}
-        
+
 		res, err = convertJsonToXliff(doc)
 		if err != nil {
 			fmt.Println(err.Error())
 			return
 		}
-           
-        }
+
+	}
 	err = ioutil.WriteFile(os.Args[2], res, 0466)
 	if err != nil {
 		fmt.Println(err)
