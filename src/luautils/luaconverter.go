@@ -50,9 +50,9 @@ func main() {
 	}
 	var luaResult *LuaResult
 	if inputT7 {
-		luaResult, err = ReadLuaResultFromJson(input, luaContext)
-	} else {
 		luaResult, err = ReadLuaResultFromT7(input, luaContext)
+	} else {
+		luaResult, err = ReadLuaResultFromJson(input, luaContext)
 	}
 	if err == nil {
 		if outputT7 {

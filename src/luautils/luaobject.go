@@ -82,6 +82,28 @@ func (o *LuaObject) PrintToJson(w *dvjson.JsonWriter) {
 	w.EndObject()
 }
 
+func ReadFromJsonFields(data map[string]*dvjson.DvFieldInfo) *LuaObject {
+	val, ok:=dvjson.GetIntValueFromFieldMap(data, LuaSpecialKey)
+	if !ok || (val!=TYPE_TORCH && val!=TYPE_FUNCTION && val!=TYPE_RECUR_FUNCTION && val!=TYPE_LEGACY_RECUR_FUNCTION){
+		return nil
+	}
+	luaObj:=&LuaObject{TypeIdx: val}
+	if val, ok = dvjson.GetIntValueFromFieldMap(data,LuaSpecialIndex); ok {
+		luaObj.RecIndex = val
+	}
+	str, ok1:=dvjson.GetStringValueFromFieldMap(data, LuaClassName)
+	if ok1 {
+		luaObj.ClassName = str
+	}
+	if str, ok1=dvjson.GetStringValueFromFieldMap(data, LuaVersion); ok1 {
+		luaObj.Version = str
+	}
+	if str, ok1=dvjson.GetStringValueFromFieldMap(data, LuaDumped); ok1 {
+		luaObj.Dumped = str
+	}
+	return luaObj
+}
+
 func (o *LuaObject) PrintDumpForTorchType(lf *LuaFileWriter) {
 	if o.Dumped == "" {
 		WriteLuaObject(lf, o.UpValues)
@@ -131,6 +153,7 @@ func ReadLuaFunction(lf *LuaFileReader, kind int, index int) *LuaObject {
 	}
 	return res
 }
+
 func LuaGoodVersion(version string) bool {
 	n:=len(version)
 	if n<2 || version[0]!='V' {
