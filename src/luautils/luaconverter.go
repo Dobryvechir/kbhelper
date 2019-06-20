@@ -10,7 +10,7 @@ func main() {
 	args := os.Args
 	l := len(args)
 	if l < 2 {
-		fmt.Println("<input file> [<output file>] [options:B-big endian F-force (not referenced) G-remove GPU models L-linux eol A-Apple eol]")
+		fmt.Println("<input file> [<output file>] [options:B-big endian F-force (not referenced) G-remove GPU models L-linux eol M-Mac eol A -all info in json]")
 		return
 	}
 	input := args[1]
@@ -39,13 +39,14 @@ func main() {
 	eol := 1
 	if strings.Contains(options, "L") {
 		eol = 0
-	} else if strings.Contains(options, "A") {
+	} else if strings.Contains(options, "M") {
 		eol = -1
 	}
 	luaContext := &LuaContext{
 		BigEndian: strings.Contains(options, "B"),
 		Force:     strings.Contains(options, "F"),
 		RemoveGpu: strings.Contains(options, "G"),
+		FullJson:  strings.Contains(options, "A"),
 		Eol:       eol,
 	}
 	var luaResult *LuaResult

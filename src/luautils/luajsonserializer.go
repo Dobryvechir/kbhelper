@@ -32,15 +32,31 @@ func ReadLuaResultJsonObject(fields []*dvjson.DvFieldInfo, context *LuaContext) 
 	keyMap := dvjson.ConvertDvFieldInfoArrayIntoMap(fields)
 	luaObj := ReadFromJsonFields(keyMap)
 	if luaObj != nil {
-		res, err := ReadLuaResultJsonItemGeneral(keyMap[LuaUpValues], context)
-		if err != nil {
-			return nil, err
+		upValues, ok := keyMap[LuaUpValues]
+		if ok {
+			res, err := ReadLuaResultJsonItemGeneral(upValues, context)
+			if err != nil {
+				return nil, err
+			}
+			resMap, ok := res.(map[interface{}]interface{})
+			if !ok {
+				return nil, errors.New("expected map, but found simple values for 'values' field ")
+			}
+			luaObj.UpValues = resMap
+		} else {
+			luaObj.UpValues = make(map[interface{}]interface{})
 		}
-		resMap, ok := res.(map[interface{}]interface{})
-		if !ok {
-			return nil, errors.New("expected map, but found simple values for 'values' field ")
+		if luaObj.TypeIdx == TYPE_TORCH {
+			classInfo, ok := torchClassMapper[luaObj.ClassName]
+			if ok {
+				err := classInfo.processor.jsonReader(&classInfo, luaObj, keyMap)
+				if err != nil {
+					return nil, err
+				}
+			} else if len(luaObj.UpValues) == 0 {
+				return nil, errors.New("values are not provided for unknown class " + luaObj.ClassName)
+			}
 		}
-		luaObj.UpValues = resMap
 		return luaObj, nil
 	}
 	res := make(map[interface{}]interface{})
@@ -151,6 +167,11 @@ func GetInterfaceKind(m map[interface{}]interface{}) int {
 				return MapMixed
 			}
 			res = MapPureArray
+		case int64:
+			if res == MapPureObject || k.(int64) > int64(n) || k.(int64) <= 0 {
+				return MapMixed
+			}
+			res = MapPureArray
 		case string:
 			if res == MapPureArray {
 				return MapMixed
@@ -181,7 +202,11 @@ func WriteMapInJson(w *dvjson.JsonWriter, m map[interface{}]interface{}) {
 	case MapPureArray:
 		w.StartArray()
 		for i := 1; i <= n; i++ {
-			WriteLuaObjectInJson(w, m[i])
+			v, ok := m[i]
+			if !ok {
+				v = m[int64(i)]
+			}
+			WriteLuaObjectInJson(w, v)
 		}
 		w.EndArray()
 	case MapPureObject:
@@ -195,7 +220,7 @@ func WriteMapInJson(w *dvjson.JsonWriter, m map[interface{}]interface{}) {
 }
 
 func WriteLuaResultToJson(fileName string, lua *LuaResult, context *LuaContext) error {
-	w, err := dvjson.CreateJsonWriter(fileName, 2, LuaBufSize, context.Eol)
+	w, err := dvjson.CreateJsonWriter(fileName, 2, LuaBufSize, context.Eol, context)
 	if err != nil {
 		return err
 	}

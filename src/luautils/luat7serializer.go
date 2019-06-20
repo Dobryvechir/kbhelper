@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strconv"
 )
 
@@ -8,8 +9,8 @@ type LuaContext struct {
 	BigEndian bool
 	Force     bool
 	RemoveGpu bool
-	Eol		int
-
+	FullJson  bool
+	Eol       int
 }
 
 type LuaResult struct {
@@ -17,42 +18,58 @@ type LuaResult struct {
 }
 
 func ReadLuaResultFromT7(fileName string, context *LuaContext) (*LuaResult, error) {
-	lf,err:=OpenLuaFile(fileName, context.BigEndian)
-	if err!=nil {
+	lf, err := OpenLuaFile(fileName, context)
+	if err != nil {
 		return nil, err
 	}
 	defer lf.CloseLuaFile()
-	lr:=&LuaResult{data:make([]interface{},0,1)}
+	lr := &LuaResult{data: make([]interface{}, 0, 1)}
 	for lf.HasMore() {
-		r:=ReadLuaObject(lf)
+		r := ReadLuaObject(lf)
 		lr.data = append(lr.data, r)
 	}
-	return lr, lf.err
+	err = lf.err
+	lf.err = nil
+	return lr, err
 }
 
 func WriteLuaResultToT7(fileName string, lua *LuaResult, context *LuaContext) error {
-	lf,err:=CreateLuaFile(fileName, context)
-	if err!=nil {
+	lf, err := CreateLuaFile(fileName, context)
+	if err != nil {
 		return err
 	}
 	defer lf.CloseLuaFile()
-	n:=len(lua.data)
-	for i:=0;i<n && lf.err==nil;i++ {
+	n := len(lua.data)
+	for i := 0; i < n && lf.err == nil; i++ {
 		WriteLuaObject(lf, lua.data[i])
 	}
 	return lf.err
 }
 
 func WriteObjectIndexAndCheckRecurring(lf *LuaFileWriter, obj interface{}) bool {
-	index, ok:=lf.objects[obj]
-	if ok && !lf.context.Force {
-		lf.WriteInt(index)
-		return true
+	recurring := !lf.context.Force
+	if recurring {
+		_, ok := obj.(map[interface{}]interface{})
+		if ok {
+			recurring = false
+		} else {
+			index, ok := lf.objects[obj]
+			if ok {
+				lf.WriteInt(index)
+				return true
+			}
+		}
 	}
 	lf.nWriteObject++
-	index = lf.nWriteObject
+	index := lf.nWriteObject
 	lf.WriteInt(index)
-	if !lf.context.Force {
+	if recurring {
+		defer func() {
+			// recover from panic if one occured. Set err to nil otherwise.
+			if recover() != nil {
+				fmt.Println("Info: index recurring was not fully supported")
+			}
+		}()
 		lf.objects[obj] = index
 	}
 	return false
@@ -64,15 +81,15 @@ func WriteLuaFunction(lf *LuaFileWriter, obj *LuaObject) {
 }
 
 func WriteLuaObject(lf *LuaFileWriter, obj interface{}) {
-	typ, subTyp:=GetLuaObjectType(obj)
+	typ, subTyp := GetLuaObjectType(obj)
 	lf.WriteInt(typ)
 	switch typ {
 	case TYPE_TORCH:
 		if WriteObjectIndexAndCheckRecurring(lf, obj) {
 			return
 		}
-		luaObj:=obj.(*LuaObject)
-		if luaObj.Version!="" {
+		luaObj := obj.(*LuaObject)
+		if luaObj.Version != "" {
 			lf.WriteLengthAndString(luaObj.Version)
 		}
 		lf.WriteLengthAndString(luaObj.ClassName)
@@ -89,8 +106,8 @@ func WriteLuaObject(lf *LuaFileWriter, obj interface{}) {
 			return
 		}
 		lf.WriteInt(subTyp)
-		tbl:=obj.(map[interface{}]interface{})
-		for k,v:=range tbl {
+		tbl := obj.(map[interface{}]interface{})
+		for k, v := range tbl {
 			WriteLuaObject(lf, k)
 			WriteLuaObject(lf, v)
 		}
@@ -99,12 +116,14 @@ func WriteLuaObject(lf *LuaFileWriter, obj interface{}) {
 	case TYPE_NUMBER:
 		var nmb float64
 		switch subTyp {
-		case NUMBER_LONG:
-			nmb=float64(obj.(int64))
-		case NUMBER_INT:
-			nmb=float64(obj.(int))
-		case NUMBER_DOUBLE:
+		case NumberIsLong:
+			nmb = float64(obj.(int64))
+		case NumberIsInt:
+			nmb = float64(obj.(int))
+		case NumberIsDouble:
 			nmb = obj.(float64)
+		case NumberIsFloat:
+			nmb = float64(obj.(float32))
 		}
 		lf.WriteDouble(nmb)
 	case TYPE_BOOLEAN:
@@ -117,12 +136,12 @@ func WriteLuaObject(lf *LuaFileWriter, obj interface{}) {
 }
 
 func ReadObjectIndexAndCheckRecurring(lf *LuaFileReader) (int, interface{}) {
-	index:=lf.ReadInt()
-	if index<=0 {
-		lf.SetErrorMessage("corrupted recurrence index: " + strconv.Itoa(index))
+	index := lf.ReadInt()
+	if index <= 0 {
+		lf.SetErrorMessage("corrupted recurrence index: "+strconv.Itoa(index), lf.integerSize)
 		return -1, nil
 	}
-	data,ok:=lf.objects[index]
+	data, ok := lf.objects[index]
 	if ok {
 		return 0, data
 	}
@@ -130,31 +149,31 @@ func ReadObjectIndexAndCheckRecurring(lf *LuaFileReader) (int, interface{}) {
 }
 
 func ReadLuaObject(lf *LuaFileReader) interface{} {
-	typ:= lf.ReadInt()
+	typ := lf.ReadInt()
 	switch typ {
 	case TYPE_TORCH:
-		index, data:=ReadObjectIndexAndCheckRecurring(lf)
-		if index<=0 {
+		index, data := ReadObjectIndexAndCheckRecurring(lf)
+		if index <= 0 {
 			return data
 		}
 		return ReadLuaTorch(lf, index)
 	case TYPE_TABLE:
-		index, data:=ReadObjectIndexAndCheckRecurring(lf)
-		if index<=0 {
+		index, data := ReadObjectIndexAndCheckRecurring(lf)
+		if index <= 0 {
 			return data
 		}
-		res:=make(map[interface{}]interface{})
+		res := make(map[interface{}]interface{})
 		lf.objects[index] = res
-		n:=lf.ReadInt()
-		for i:=0;i<n;i++ {
-			k:=ReadLuaObject(lf)
-			v:=ReadLuaObject(lf)
-			res[k]=v
+		n := lf.ReadInt()
+		for i := 0; i < n; i++ {
+			k := ReadLuaObject(lf)
+			v := ReadLuaObject(lf)
+			res[k] = v
 		}
 		return res
 	case TYPE_RECUR_FUNCTION, TYPE_LEGACY_RECUR_FUNCTION:
-		index, data:=ReadObjectIndexAndCheckRecurring(lf)
-		if index<=0 {
+		index, data := ReadObjectIndexAndCheckRecurring(lf)
+		if index <= 0 {
 			return data
 		}
 		return ReadLuaFunction(lf, typ, index)
@@ -163,9 +182,9 @@ func ReadLuaObject(lf *LuaFileReader) interface{} {
 	case TYPE_STRING:
 		return lf.ReadString()
 	case TYPE_NUMBER:
-		v:=lf.ReadDouble()
-		iv:=int(v)
-		if float64(iv)==v {
+		v := lf.ReadDouble()
+		iv := int(v)
+		if float64(iv) == v {
 			return iv
 		}
 		return v
@@ -174,7 +193,7 @@ func ReadLuaObject(lf *LuaFileReader) interface{} {
 	case TYPE_NIL:
 		return nil
 	default:
-		lf.SetErrorMessage("Corrupted file: type code "+ strconv.Itoa(typ))
+		lf.SetErrorMessage("Corrupted file: type code (expected 0..8)="+strconv.Itoa(typ), -lf.integerSize)
 		return nil
 	}
 }

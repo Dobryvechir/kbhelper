@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"github.com/Dobryvechir/dvserver/src/dvjson"
 	"math"
 	"os"
 	"strings"
@@ -130,6 +131,77 @@ func (lf *LuaFileWriter) WriteInt(v int) {
 	lf.cursor += 4
 }
 
+func (lf *LuaFileWriter) WriteUInt(v uint32) {
+	if lf.cursor+4 > lf.total {
+		lf.FlushLuaFile()
+	}
+	d := lf.buf[lf.cursor:]
+	if !lf.bigEn {
+		d[0] = byte(v)
+		d[1] = byte(v >> 8)
+		d[2] = byte(v >> 16)
+		d[3] = byte(v >> 24)
+	} else {
+		d[3] = byte(v)
+		d[2] = byte(v >> 8)
+		d[1] = byte(v >> 16)
+		d[0] = byte(v >> 24)
+	}
+	lf.cursor += 4
+}
+
+func (lf *LuaFileWriter) WriteUShort(v uint16) {
+	if lf.cursor+2 > lf.total {
+		lf.FlushLuaFile()
+	}
+	d := lf.buf[lf.cursor:]
+	if !lf.bigEn {
+		d[0] = byte(v)
+		d[1] = byte(v >> 8)
+	} else {
+		d[1] = byte(v)
+		d[0] = byte(v >> 8)
+	}
+	lf.cursor += 2
+}
+
+func (lf *LuaFileWriter) WriteIntNumber(v interface{}, size int) {
+	vl := dvjson.ConvertToUnsignedLong(v)
+	if lf.cursor+size > lf.total {
+		lf.FlushLuaFile()
+	}
+	d := lf.buf[lf.cursor:]
+	switch size {
+	case 8:
+		lf.WriteULong(vl)
+		return
+	case 4:
+		if !lf.bigEn {
+			d[0] = byte(vl)
+			d[1] = byte(vl >> 8)
+			d[2] = byte(vl >> 16)
+			d[3] = byte(vl >> 24)
+		} else {
+			d[3] = byte(vl)
+			d[2] = byte(vl >> 8)
+			d[1] = byte(vl >> 16)
+			d[0] = byte(vl >> 24)
+		}
+	case 2:
+		if !lf.bigEn {
+			d[0] = byte(vl)
+			d[1] = byte(vl >> 8)
+		} else {
+			d[1] = byte(vl)
+			d[0] = byte(vl >> 8)
+		}
+	case 1:
+		d[0] = byte(vl)
+	}
+
+	lf.cursor += size
+}
+
 func (lf *LuaFileWriter) WriteBoolean(v bool) {
 	k := 0
 	if v {
@@ -196,9 +268,45 @@ func (lf *LuaFileWriter) WriteDouble(v float64) {
 	lf.WriteULong(math.Float64bits(v))
 }
 
+func (lf *LuaFileWriter) WriteDoubleNumber(v interface{}) {
+	lf.WriteULong(math.Float64bits(dvjson.ConvertToDouble(v)))
+}
+
+func (lf *LuaFileWriter) WriteFloatNumber(v interface{}) {
+	lf.WriteUInt(math.Float32bits(dvjson.ConvertToFloat(v)))
+}
+
+func ConvertFloatToHalf(f float32) uint16 {
+	v := math.Float32bits(f)
+	r := uint16(0)
+	if v&0x80000000 != 0 {
+		f = -f
+		r |= uint16(0x8000)
+	}
+	fraction := (v >> 13) & 0x3ff
+	exponent := int((v>>23)&0xff) - 0x7f
+	if exponent <= -0xf {
+		exponent = 0
+		fraction = 0
+	} else if exponent > 0xf {
+		exponent = 0x1f
+		fraction = 0
+	} else {
+		exponent += 0xf
+	}
+	r |= uint16(exponent<<10) | uint16(fraction)
+	return r
+}
+
+func (lf *LuaFileWriter) WriteHalfFloat(v interface{}) {
+	f := dvjson.ConvertToFloat(v)
+	s := ConvertFloatToHalf(f)
+	lf.WriteUShort(s)
+}
+
 func (lf *LuaFileWriter) WriteLengthAndString(data string) {
-	bf:=[]byte(data)
-	length:=len(bf)
+	bf := []byte(data)
+	length := len(bf)
 	lf.WriteInt(length)
 	lf.WriteByteArrayWithLength(bf, length)
 }
