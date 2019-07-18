@@ -3,6 +3,8 @@
 package main
 
 import (
+	"bufio"
+	"encoding/base64"
 	"fmt"
 	"github.com/Dobryvechir/dvserver/src/dvnet"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
@@ -17,13 +19,14 @@ import (
 var isOCLogined = false
 
 const (
-	Authorization = "Authorization"
-	ContentType   = "Content-Type"
-	oslogin       = "login https://{{{OPENSHIFT_SERVER}}}.{{{OPENSHIFT_DOMAIN}}}:{{{OPENSHIFT_PORT}}} -u {{{OC_LOGIN}}} -p {{{OC_PASS}}} --insecure-skip-tls-verify=true -n {{{OPENSHIFT_NAMESPACE}}}"
-	osproject     = "\"{{{OPENSHIFT_NAMESPACE}}}\""
-	ocsecrets     = "export --insecure-skip-tls-verify secret %1-client-credentials"
-	author        = " -  Volodymyr Dobryvechir 2019"
-        ocexpose      = "oc expose svc/frontend --hostname=www.example.com"
+	authorization         = "Authorization"
+	contentType           = "Content-Type"
+	openShiftLogin        = "login https://{{{OPENSHIFT_SERVER}}}.{{{OPENSHIFT_DOMAIN}}}:{{{OPENSHIFT_PORT}}} -u {{{OPENSHIFT_LOGIN}}} -p {{{OPENSHIFT_PASS}}} --insecure-skip-tls-verify=true -n {{{OPENSHIFT_NAMESPACE}}}"
+	openShiftProject      = "\"{{{OPENSHIFT_NAMESPACE}}}\""
+	openShiftSecrets      = "export --insecure-skip-tls-verify secret %1-client-credentials"
+	author                = " -  Volodymyr Dobryvechir 2019"
+	openShiftExpose       = "expose svc/%1"
+	openShiftEnsureRoutes = "OPENSHIFT_ENSURE_ROUTES"
 )
 
 type AccessToken struct {
@@ -58,7 +61,7 @@ func getTempPath() string {
 	return ""
 }
 
-func getTemporaryFileName() string {
+func getTempPathSlashed() string {
 	path := getTempPath()
 	if path == "" {
 		return ""
@@ -66,8 +69,16 @@ func getTemporaryFileName() string {
 	if path[len(path)-1] != '/' && path[len(path)-1] != '\\' {
 		path += "/"
 	}
+	return path
+}
+
+func getTemporaryFileName() string {
+	path := getTempPathSlashed()
+	if path == "" {
+		return ""
+	}
 	for i := 0; i < 20000; i++ {
-		fileName = path + "dbghelper" + strconv.Itoa(i)
+		fileName := path + "dbghelper" + strconv.Itoa(i)
 		_, err := os.Stat(fileName)
 		if os.IsNotExist(err) {
 			return fileName
@@ -86,8 +97,9 @@ func runOCCommand(params string) (string, bool) {
 	stdoutStderr, err := cmd.CombinedOutput()
 	if err != nil {
 		os.Remove(fileName)
-		log.Print("Error: " + err.Error())
-		log.Print("You should have installed openshift client (oc) and put it path to PATH environment variable")
+		log.Println(stdoutStderr)
+		log.Println("Error: " + err.Error())
+		log.Println("You should have installed openshift client (oc) and put it path to PATH environment variable")
 		return "", false
 	}
 	data, err := ioutil.ReadFile(fileName)
@@ -104,14 +116,14 @@ func ocLogin() bool {
 	if isOCLogined {
 		return true
 	}
-	projectName, err1 := dvparser.ConvertByteArrayByGlobalProperties([]byte(osproject), "OPENSHIFT_NAME")
+	projectName, err1 := dvparser.ConvertByteArrayByGlobalProperties([]byte(openShiftProject), "OPENSHIFT_NAME")
 	if err1 != nil {
 		fmt.Printf("Make sure you specified OPENSHIFT_NAME (project name) in file dvserver.properties")
 		return false
 	}
-	cmdLine, err := dvparser.ConvertByteArrayByGlobalProperties([]byte(oclogin), "oc login parameters")
+	cmdLine, err := dvparser.ConvertByteArrayByGlobalProperties([]byte(openShiftLogin), "oc login parameters")
 	if err != nil {
-		fmt.Printf("Make sure you specified all constants related to oc login (%s)  (%v)", oclogin, err)
+		fmt.Printf("Make sure you specified all constants related to oc login (%s)  (%v)", openShiftLogin, err)
 		return false
 	}
 	res, ok := runOCCommand(cmdLine)
@@ -124,12 +136,12 @@ func ocLogin() bool {
 		fmt.Printf("Project %s is missing, specify it in OPENSHIFT_NAME property in dvserver.properties", projectName)
 		return false
 	}
-	isOCLogined = true
-	return true
+	isOCLogined = openshiftEnsureExposeRoutes()
+	return isOCLogined
 }
 
 func getOpenshiftSecrets(microserviceName string) (user string, ps string, okFinal bool) {
-	cmdLine := strings.Replace(ocsecrets, "%1", microserviceName)
+	cmdLine := strings.ReplaceAll(openShiftSecrets, "%1", microserviceName)
 	if !ocLogin() {
 		return
 	}
@@ -147,7 +159,7 @@ func getOpenshiftSecrets(microserviceName string) (user string, ps string, okFin
 				str, err = base64.StdEncoding.DecodeString(s[1])
 				if err != nil {
 					log.Print(info)
-					fmt.Println("Cannot get secret for microservice %s error: %v", microserviceName, err)
+					fmt.Printf("Cannot get secret for microservice %s error: %v", microserviceName, err)
 					return
 				}
 				ps = string(str)
@@ -156,10 +168,10 @@ func getOpenshiftSecrets(microserviceName string) (user string, ps string, okFin
 					return
 				}
 			case "username:":
-				str, err = base64.StdEncoding.DecodeString(s[1])
+				str, err := base64.StdEncoding.DecodeString(s[1])
 				if err != nil {
 					log.Print(info)
-					fmt.Println("Cannot get secret for microservice %s error: %v", microserviceName, err)
+					fmt.Printf("Cannot get secret for microservice %s error: %v", microserviceName, err)
 					return
 				}
 				user = string(str)
@@ -170,8 +182,8 @@ func getOpenshiftSecrets(microserviceName string) (user string, ps string, okFin
 			}
 		}
 	}
-	log.Print(info)
-	fmt.Println("Cannot get secret for microservice %s", microserviceName)
+	log.Println(info)
+	fmt.Printf("Cannot get secret for microservice %s", microserviceName)
 	return
 }
 
@@ -180,30 +192,59 @@ func getM2MToken(microserviceName string) (token string, okFinal bool) {
 	if !ok {
 		return
 	}
-	m2mTokenUrl_raw := dvparser.GlobalProperties["M2MTOKEN_URL"]
+	m2mTokenUrlRaw := dvparser.GlobalProperties["M2MTOKEN_URL"]
 
-	if m2mTokenUrl_raw == "" {
+	if m2mTokenUrlRaw == "" {
 		log.Print("Specify M2MTOKEN_URL in dvserver.properties")
 		return
 	}
-	m2mTokenUrl, err1 := dvparser.ConvertByteArrayByGlobalProperties([]byte(m2mTokenUrl_raw), "M2M TOKEN URL")
+	m2mTokenUrl, err1 := dvparser.ConvertByteArrayByGlobalProperties([]byte(m2mTokenUrlRaw), "M2M TOKEN URL")
 	if err1 != nil {
-		fmt.Printf("Make sure you specified all constants in %s file dvserver.properties: %v", m2mTokenUrl_raw, err1)
-		return false
+		fmt.Printf("Make sure you specified all constants in %s file dvserver.properties: %v", m2mTokenUrlRaw, err1)
+		return
 	}
 	body := map[string]string{"grant_type": "client_credentials",
 		"client_secret": passwrd,
 		"client_id":     username}
 	headers := map[string]string{"cache-control": "no-cache", "Content-Type": "application/x-www-form-urlencoded"}
-	var accessToken AccessToken = AccessToken{}
-	err := dvnet.LoadStructFormUrlEncoded("POST", m2mTokenUrl, body, headers, &accessToken, 30)
+	var accessToken = &AccessToken{}
+	err := dvnet.LoadStructFormUrlEncoded("POST", m2mTokenUrl, body, headers, accessToken, 30)
 	if accessToken.TokenType == "" || accessToken.AccessToken == "" {
 		dvnet.DvNetLog = true
 		err = dvnet.LoadStructFormUrlEncoded("POST", m2mTokenUrl, body, headers, &accessToken, 1)
 		if accessToken.TokenType == "" || accessToken.AccessToken == "" {
-			log.Print("Cannot get M2M Access Token for %s (%v)", microserviceName, err)
+			fmt.Printf("Cannot get M2M Access Token for %s (%v)", microserviceName, err)
 			return
 		}
 	}
 	return accessToken.TokenType + " " + accessToken.AccessToken, true
+}
+
+func openshiftEnsureExposeRoutes() bool {
+	routes := dvparser.ConvertToNonEmptyList(dvparser.GlobalProperties[openShiftEnsureRoutes])
+	if len(routes) != 0 {
+		for _, v := range routes {
+			cmdLine := strings.ReplaceAll(openShiftExpose, "%1", v)
+			res, ok := runOCCommand(cmdLine)
+			if !ok {
+				return false
+			}
+			if strings.Index(res, "exposed") < 0 && strings.Index(res, "AlreadyExist") < 0 {
+				log.Printf("Unrecognized response to %s : %s", cmdLine, res)
+			}
+		}
+	}
+	return true
+}
+
+func getSafeFileName(src string) string {
+	data := []byte(src)
+	n := len(data)
+	for i := 0; i < n; i++ {
+		c := data[i]
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c == '-') {
+			data[i] = '_'
+		}
+	}
+	return string(data)
 }
