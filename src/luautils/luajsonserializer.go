@@ -38,13 +38,13 @@ func ReadLuaResultJsonObject(fields []*dvjson.DvFieldInfo, context *LuaContext) 
 			if err != nil {
 				return nil, err
 			}
-			resMap, ok := res.(map[interface{}]interface{})
+			resMap, ok := res.(*dvjson.OrderedMap)
 			if !ok {
 				return nil, errors.New("expected map, but found simple values for 'values' field ")
 			}
 			luaObj.UpValues = resMap
 		} else {
-			luaObj.UpValues = make(map[interface{}]interface{})
+			luaObj.UpValues = dvjson.CreateOrderedMap(16)
 		}
 		if luaObj.TypeIdx == TYPE_TORCH {
 			classInfo, ok := torchClassMapper[luaObj.ClassName]
@@ -59,13 +59,13 @@ func ReadLuaResultJsonObject(fields []*dvjson.DvFieldInfo, context *LuaContext) 
 		}
 		return luaObj, nil
 	}
-	res := make(map[interface{}]interface{})
+	res := dvjson.CreateOrderedMap(len(keyMap))
 	for k, v := range keyMap {
 		vf, err := ReadLuaResultJsonItemGeneral(v, context)
 		if err != nil {
 			return nil, err
 		}
-		res[k] = vf
+		res.Put(k,vf)
 	}
 	return res, nil
 }
@@ -80,7 +80,7 @@ func ReadLuaResultJsonArray(fields []*dvjson.DvFieldInfo, context *LuaContext) (
 			break
 		}
 	}
-	res := make(map[interface{}]interface{})
+	res := dvjson.CreateOrderedMap(n)
 	if assumeComplex {
 		for i := 0; i < n; i++ {
 			d := fields[i].Fields
@@ -92,7 +92,7 @@ func ReadLuaResultJsonArray(fields []*dvjson.DvFieldInfo, context *LuaContext) (
 			if err1 != nil {
 				return nil, err
 			}
-			res[k] = v
+			res.Put(k, v)
 		}
 	} else {
 		for i := 0; i < n; i++ {
@@ -100,7 +100,7 @@ func ReadLuaResultJsonArray(fields []*dvjson.DvFieldInfo, context *LuaContext) (
 			if err != nil {
 				return nil, err
 			}
-			res[i+1] = v
+			res.Put(i+1, v)
 		}
 	}
 	return res, nil
@@ -148,49 +148,30 @@ func WriteLuaObjectInJson(w *dvjson.JsonWriter, data interface{}) {
 		switch data.(type) {
 		case *LuaObject:
 			data.(*LuaObject).PrintToJson(w)
-		case map[interface{}]interface{}:
-			WriteMapInJson(w, data.(map[interface{}]interface{}))
+		case *dvjson.OrderedMap:
+			WriteMapInJson(w, data.(*dvjson.OrderedMap))
 		}
 	}
 }
 
-func GetInterfaceKind(m map[interface{}]interface{}) int {
-	n := len(m)
-	if n == 0 {
+func GetInterfaceKind(m *dvjson.OrderedMap) int {
+        if m.IsSimpleArray(1) {
 		return MapPureArray
 	}
-	res := MapMixed
-	for k := range m {
-		switch k.(type) {
-		case int:
-			if res == MapPureObject || k.(int) > n || k.(int) <= 0 {
-				return MapMixed
-			}
-			res = MapPureArray
-		case int64:
-			if res == MapPureObject || k.(int64) > int64(n) || k.(int64) <= 0 {
-				return MapMixed
-			}
-			res = MapPureArray
-		case string:
-			if res == MapPureArray {
-				return MapMixed
-			}
-			res = MapPureObject
-		default:
-			return MapMixed
-		}
-	}
-	return res
+        if m.IsSimpleObject() {
+               return MapPureObject
+        }
+	return MapMixed
 }
 
-func WriteMapInJson(w *dvjson.JsonWriter, m map[interface{}]interface{}) {
+func WriteMapInJson(w *dvjson.JsonWriter, m *dvjson.OrderedMap) {
 	kind := GetInterfaceKind(m)
-	n := len(m)
+	n := m.Size()
 	switch kind {
 	case MapMixed:
 		w.StartArray()
-		for k, v := range m {
+		for i:=0; i<n;i++ {
+                        k,v:=m.GetAt(i)
 			w.StartObject()
 			w.PrintKey(KeyName)
 			WriteLuaObjectInJson(w, k)
@@ -202,16 +183,17 @@ func WriteMapInJson(w *dvjson.JsonWriter, m map[interface{}]interface{}) {
 	case MapPureArray:
 		w.StartArray()
 		for i := 1; i <= n; i++ {
-			v, ok := m[i]
+			v, ok := m.Get(i)
 			if !ok {
-				v = m[int64(i)]
+				v = m.Get(int64(i))
 			}
 			WriteLuaObjectInJson(w, v)
 		}
 		w.EndArray()
 	case MapPureObject:
 		w.StartObject()
-		for k, v := range m {
+		for i:=0;i<n;i++ {
+                        k,v:=m.Get(i)
 			w.PrintKey(k.(string))
 			WriteLuaObjectInJson(w, v)
 		}

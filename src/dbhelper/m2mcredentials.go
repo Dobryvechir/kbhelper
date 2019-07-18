@@ -31,7 +31,7 @@ func readCredentials(fileName string, pathName string) (user string, ps string) 
 			case "password:":
 				str, err = base64.StdEncoding.DecodeString(s[1])
 				if err != nil {
-					fmt.Println("error:", err)
+					fmt.Println("error: %v", err)
 					panic("Fatal error")
 				}
 				ps = string(str)
@@ -45,7 +45,7 @@ func readCredentials(fileName string, pathName string) (user string, ps string) 
 			case "username:":
 				str, err = base64.StdEncoding.DecodeString(s[1])
 				if err != nil {
-					fmt.Println("error:", err)
+					fmt.Println("error: %v", err)
 					panic("Fatal error")
 				}
 				user = string(str)

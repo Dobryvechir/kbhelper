@@ -45,7 +45,7 @@ type LuaObject struct {
 	Dumped    string
 	Version   string
 	ClassName string
-	UpValues  map[interface{}]interface{}
+	UpValues  *dvjson.OrderedMap
 }
 
 const (
@@ -161,8 +161,8 @@ func GetLuaObjectType(data interface{}) (int, int) {
 		return TYPE_NUMBER, NumberIsFloat
 	case nil:
 		return TYPE_NIL, 0
-	case map[interface{}]interface{}:
-		return TYPE_TABLE, len(data.(map[interface{}]interface{}))
+	case *dvjson.OrderedMap:
+		return TYPE_TABLE, len(data.(*dvjson.OrderedMap))
 	case *LuaObject:
 		return data.(*LuaObject).TypeIdx, 0
 	}
@@ -178,8 +178,8 @@ func ReadLuaFunction(lf *LuaFileReader, kind int, index int) *LuaObject {
 	obj := ReadLuaObject(lf)
 	switch obj.(type) {
 	case nil:
-	case map[interface{}]interface{}:
-		res.UpValues = obj.(map[interface{}]interface{})
+	case *dvjson.OrderedMap:
+		res.UpValues = obj.(*dvjson.OrderedMap)
 	default:
 		lf.SetErrorData("corrupted file, expected associated map, but received ", obj, 0)
 	}
@@ -223,8 +223,8 @@ func ReadLuaTorch(lf *LuaFileReader, index int) *LuaObject {
 		obj = ReadLuaObject(lf)
 	}
 	switch obj.(type) {
-	case map[interface{}]interface{}:
-		res.UpValues = obj.(map[interface{}]interface{})
+	case *dvjson.OrderedMap:
+		res.UpValues = obj.(*dvjson.OrderedMap)
 	default:
 		lf.SetErrorData("corrupted file, expected associated map, but received ", obj, 0)
 	}

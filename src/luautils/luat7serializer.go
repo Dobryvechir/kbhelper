@@ -49,7 +49,7 @@ func WriteLuaResultToT7(fileName string, lua *LuaResult, context *LuaContext) er
 func WriteObjectIndexAndCheckRecurring(lf *LuaFileWriter, obj interface{}) bool {
 	recurring := !lf.context.Force
 	if recurring {
-		_, ok := obj.(map[interface{}]interface{})
+		_, ok := obj.(*dvjson.OrderedMap)
 		if ok {
 			recurring = false
 		} else {
@@ -106,8 +106,10 @@ func WriteLuaObject(lf *LuaFileWriter, obj interface{}) {
 			return
 		}
 		lf.WriteInt(subTyp)
-		tbl := obj.(map[interface{}]interface{})
-		for k, v := range tbl {
+		tbl := obj.(*dvjson.OrderedMap)
+                n:=tbl.Size()
+		for i:=0;i<n;i++ {
+                        k,v:=tbl.GetAt(i)
 			WriteLuaObject(lf, k)
 			WriteLuaObject(lf, v)
 		}
@@ -162,13 +164,13 @@ func ReadLuaObject(lf *LuaFileReader) interface{} {
 		if index <= 0 {
 			return data
 		}
-		res := make(map[interface{}]interface{})
+		res := dvjson.CreateOrderedMap(n)
 		lf.objects[index] = res
 		n := lf.ReadInt()
 		for i := 0; i < n; i++ {
 			k := ReadLuaObject(lf)
 			v := ReadLuaObject(lf)
-			res[k] = v
+			res.Put(k, v)
 		}
 		return res
 	case TYPE_RECUR_FUNCTION, TYPE_LEGACY_RECUR_FUNCTION:

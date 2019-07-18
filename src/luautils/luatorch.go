@@ -7,7 +7,7 @@ import (
 )
 
 type torchProcessor struct {
-	t7Reader   func(lf *LuaFileReader, obj *LuaObject, info *torchClassInfo) map[interface{}]interface{}
+	t7Reader   func(lf *LuaFileReader, obj *LuaObject, info *torchClassInfo) *dvjson.OrderedMap
 	t7Writer   func(o *LuaObject, lf *LuaFileWriter, info *torchClassInfo)
 	jsonReader func(info *torchClassInfo, luaObj *LuaObject, keyMap map[string]*dvjson.DvFieldInfo) error
 	jsonWriter func(o *LuaObject, w *dvjson.JsonWriter, fullInfo bool) bool
@@ -23,132 +23,116 @@ func checkCudaRemoval(lf *LuaFileReader, obj *LuaObject, info *torchClassInfo) {
 	}
 }
 
-func torchTensorT7Reader(lf *LuaFileReader, obj *LuaObject, info *torchClassInfo) map[interface{}]interface{} {
+func torchTensorT7Reader(lf *LuaFileReader, obj *LuaObject, info *torchClassInfo) *dvjson.OrderedMap {
 	checkCudaRemoval(lf, obj, info)
 	dimAmount := lf.ReadInt()
-	dimensions := make(map[interface{}]interface{}, dimAmount)
+	dimensions := dvjson.CreateOrderedMap(dimAmount)
 	for i := 0; i < dimAmount; i++ {
-		dimensions[i+1] = lf.ReadLong()
+		dimensions.Put(i+1, lf.ReadLong())
 	}
-	subArrayDimensions := make(map[interface{}]interface{}, dimAmount+1)
+	subArrayDimensions := dvjson.CreateOrderedMap(dimAmount+1)
 	if dimAmount == 0 {
-		subArrayDimensions[1] = int64(lf.ReadInt())
+		subArrayDimensions.Put(1, int64(lf.ReadInt()))
 	} else {
 		subArrayAmount := dimAmount + 1
 		for i := 0; i < subArrayAmount; i++ {
-			subArrayDimensions[i+1] = lf.ReadLong()
+			subArrayDimensions.Put(i+1, lf.ReadLong())
 		}
 	}
-	return map[interface{}]interface{}{
+	return dvjson.CreateOrderedMapByMap(map[interface{}]interface{}{
 		"dimAmount":  dimAmount,
 		"dimensions": dimensions,
 		"subAmounts": subArrayDimensions,
-	}
+	})
 }
 
-func torchStorageT7Reader(lf *LuaFileReader, obj *LuaObject, info *torchClassInfo) map[interface{}]interface{} {
+func torchStorageT7Reader(lf *LuaFileReader, obj *LuaObject, info *torchClassInfo) *dvjson.OrderedMap {
 	checkCudaRemoval(lf, obj, info)
 	amount := lf.ReadLong()
-	data := make(map[interface{}]interface{}, amount)
-	res := map[interface{}]interface{}{
-		"amount": amount,
-		"data":   data,
-	}
+	data := make([]interface,amount)
 	var i int64
 	switch info.kind {
 	case NumberIsInt:
 		size := info.unitSize
 		for i = 0; i < amount; i++ {
-			data[i+1] = int32(lf.ReadUInt(size))
+			data[i]= int32(lf.ReadUInt(size)
 		}
 	case NumberIsLong:
 		size := info.unitSize
 		for i = 0; i < amount; i++ {
-			data[i+1] = int64(lf.ReadUInt(size))
+			data[i] = int64(lf.ReadUInt(size))
 		}
 	case NumberIsShort:
 		size := info.unitSize
 		for i = 0; i < amount; i++ {
-			data[i+1] = int16(lf.ReadUInt(size))
+			data[i] = int16(lf.ReadUInt(size))
 		}
 	case NumberIsChar:
 		size := info.unitSize
 		for i = 0; i < amount; i++ {
-			data[i+1] = int8(lf.ReadUInt(size))
+			data[i] = int8(lf.ReadUInt(size))
 		}
 	case NumberIsByte:
 		size := info.unitSize
 		for i = 0; i < amount; i++ {
-			data[i+1] = uint8(lf.ReadUInt(size))
+			data[i] = uint8(lf.ReadUInt(size))
 		}
 	case NumberIsDouble:
 		for i = 0; i < amount; i++ {
-			data[i+1] = lf.ReadDouble()
+			data[i] = lf.ReadDouble()
 		}
 	case NumberIsFloat:
 		for i = 0; i < amount; i++ {
-			data[i+1] = lf.ReadFloat()
+			data[i] = lf.ReadFloat()
 		}
 	case NumberIsHalf:
 		for i = 0; i < amount; i++ {
-			data[i+1] = lf.ReadHalfFloat()
+			data[i] = lf.ReadHalfFloat()
 		}
 	}
+	res := dvjson.CreateOrderedMapByMap(map[interface{}]interface{}{
+		"amount": amount,
+		"data":   dvjson.CreateOrderedMapByArray(data, 1),
+	})
 	return res
 }
 
 func checkNonStandardSubAmounts(dimensions interface{}, subAmounts interface{}) bool {
-	dims, ok := dimensions.(map[interface{}]interface{})
+	dims, ok := dimensions.(*dvjson.OrderedMap)
 	if !ok {
 		return true
 	}
-	subs, ok1 := subAmounts.(map[interface{}]interface{})
+	subs, ok1 := subAmounts.(*dvjson.OrderedMap)
 	if !ok1 {
 		return true
 	}
-	n := len(dims)
-	m := len(subs)
+	n := dims.Size()
+	m := subs.Size()
 	if m != n+1 {
 		return true
 	}
 	if n == 0 {
-		return subs[1] != 0
+                r,ok:= subs.GetInt64ByInt64Key(1)
+		return !ok || r!= 0
 	}
-	val, ok := subs[m]
-	if !ok {
-		val = subs[int64(m)]
-	}
-	if val != int64(1) && val != int(1) {
-		return false
+	val, ok := subs.GetInt64ByInt64Key(m)
+	if !ok || val!=int64(1) {
+		return true		
 	}
 	m--
-	val, ok = subs[m]
-	if !ok {
-		val = subs[int64(m)]
-	}
-	if val != int64(1) && val != int(1) {
-		return false
+	val, ok = subs.GetInt64ByInt64Key(m)
+	if !ok || val!=int64(1) {
+		return true
 	}
 	res := int64(1)
 	for m--; n > 1; n-- {
-		val, ok = subs[m]
-		if !ok {
-			val = subs[int64(m)]
-		}
-		resUnit, nok := val.(int64)
-		if !nok {
-			resUnit = int64(val.(int))
-		}
-		val, ok = dims[n]
-		if !ok {
-			val = dims[int64(n)]
-		}
-		multiUnit, ok := val.(int64)
-		if !ok {
-			multiUnit = int64(val.(int))
-		}
+		val, ok = subs.GetInt64ByInt64Key(m)
+                if !ok {
+                        return true
+                }
+		multiUnit, ok := dims.GetInt64ByInt64Key(n)
 		res *= multiUnit
-		if resUnit != res {
+		if resUnit != res || !ok {
 			return true
 		}
 		m--
@@ -157,15 +141,15 @@ func checkNonStandardSubAmounts(dimensions interface{}, subAmounts interface{}) 
 }
 
 func torchTensorJsonWriter(o *LuaObject, w *dvjson.JsonWriter, fullInfo bool) bool {
-	dimensions := o.UpValues["dimensions"].(map[interface{}]interface{})
+	dimensions := o.UpValues["dimensions"].(*dvjson.OrderedMap)
 	if fullInfo || checkNonStandardSubAmounts(dimensions, o.UpValues["subAmounts"]) {
 		return true
 	}
 	w.PrintKey("dimensions")
-	n := len(dimensions)
+	n := dimensions.Size()
 	w.StartArray()
 	for i := 1; i <= n; i++ {
-		w.PrintValueSmart(dimensions[i])
+		w.PrintValueSmart(dimensions.GetByInt64Key(int64(i)))
 	}
 	w.EndArray()
 	return false
@@ -179,13 +163,10 @@ func torchStorageJsonWriter(o *LuaObject, w *dvjson.JsonWriter, fullInfo bool) b
 	w.PrintValueSmart(o.UpValues["amount"])
 	w.PrintKey("data")
 	w.StartArray()
-	data := o.UpValues["data"].(map[interface{}]interface{})
+	data := o.UpValues["data"].(*dvjson.OrderedMap)
 	n := len(data)
 	for i := 1; i <= n; i++ {
-		v, ok := data[i]
-		if !ok {
-			v = data[int64(i)]
-		}
+		v, ok := data.GetByInt64Key(int64(i))
 		w.PrintValueSmart(v)
 	}
 	w.EndArray()
@@ -193,7 +174,7 @@ func torchStorageJsonWriter(o *LuaObject, w *dvjson.JsonWriter, fullInfo bool) b
 }
 
 func torchTensorJsonReader(info *torchClassInfo, luaObj *LuaObject, keyMap map[string]*dvjson.DvFieldInfo) error {
-	var dimensions map[interface{}]interface{}
+	var dimensions *dvjson.OrderedMap
 	dimInfo, ok := keyMap["dimensions"]
 	if ok {
 		res, ok1 := dimInfo.ConvertValueToInterface()
@@ -205,53 +186,49 @@ func torchTensorJsonReader(info *torchClassInfo, luaObj *LuaObject, keyMap map[s
 			return errors.New("dimensions field must be an array")
 		}
 		n := len(result)
-		dimensions = make(map[interface{}]interface{})
+		dimensions = dvjson.CreateOrderedMap(n)
 		for i := 0; i < n; i++ {
-			dimensions[i+1] = result[i]
+			dimensions.Put(i+1, result[i])
 		}
-		luaObj.UpValues["dimensions"] = dimensions
+		luaObj.UpValues.Put("dimensions", dimensions)
 	} else {
-		res, ok := luaObj.UpValues["dimensions"]
+		res, ok := luaObj.UpValues.Get("dimensions")
 		if !ok {
 			return errors.New("dimensions are not defined at all")
 		}
-		dimensions, ok = res.(map[interface{}]interface{})
+		dimensions, ok = res.(*dvjson.OrderedMap)
 		if !ok {
 			return errors.New("dimensions are corrupted")
 		}
 	}
-	n := len(dimensions)
-	luaObj.UpValues["amount"] = n
-	_, ok = luaObj.UpValues["subAmounts"]
+	n := dimensions.Size()
+	luaObj.UpValues.Put("amount", n)
+	_, ok = luaObj.UpValues.Get("subAmounts")
 	if !ok {
-		subAmounts := make(map[interface{}]interface{}, n+1)
+		subAmounts := dvjson.CreateOrderedMap(n+1)
 		if n == 0 {
-			subAmounts[1] = 0
+			subAmounts.Put(1, 0)
 		} else {
-			subAmounts[n+1] = int64(1)
-			subAmounts[n] = int64(1)
+			subAmounts.Put(n+1, int64(1))
+			subAmounts.Put(n, int64(1))
 			res := int64(1)
 			for n > 1 {
-				v, ok := dimensions[n].(int)
-				vf := int64(v)
-				if !ok {
-					vf, ok = dimensions[n].(int64)
-				}
+				vf, ok := dimensions.GetInt64ByInt64Key(n)
 				if !ok || vf <= 0 {
 					return errors.New("incorrect dimensions")
 				}
 				res *= vf
 				n--
-				subAmounts[n] = res
+				subAmounts.Put(n, res)
 			}
 		}
-		luaObj.UpValues["subAmounts"] = subAmounts
+		luaObj.UpValues.Put("subAmounts", subAmounts)
 	}
 	return nil
 }
 
 func torchStorageJsonReader(info *torchClassInfo, luaObj *LuaObject, keyMap map[string]*dvjson.DvFieldInfo) error {
-	var data map[interface{}]interface{}
+	var data *dvjson.OrderedMap
 	datInfo, ok := keyMap["data"]
 	if ok {
 		res, ok1 := datInfo.ConvertValueToInterface()
@@ -263,128 +240,110 @@ func torchStorageJsonReader(info *torchClassInfo, luaObj *LuaObject, keyMap map[
 			return errors.New("data field must be an array")
 		}
 		n := len(result)
-		data = make(map[interface{}]interface{})
+		data = make([]interface{})
 		for i := 0; i < n; i++ {
-			data[i+1] = result[i]
+			data[i] = result[i]
 		}
-		luaObj.UpValues["data"] = data
+		luaObj.UpValues.Put("data", dvjson.CreateOrderedMapByArray(data,1))
 	} else {
-		res, ok := luaObj.UpValues["data"]
+		res, ok := luaObj.UpValues.Get("data")
 		if !ok {
 			return errors.New("data field is not defined at all")
 		}
-		data, ok = res.(map[interface{}]interface{})
+		data, ok = res.(*dvjson.OrderedMap)
 		if !ok {
 			return errors.New("data field is corrupted")
 		}
 	}
-	n := len(data)
-	luaObj.UpValues["amount"] = n
+	n := data.Size()
+	luaObj.UpValues.Put("amount", n)
 	return nil
 }
 
 func torchTensorT7Writer(o *LuaObject, lf *LuaFileWriter, info *torchClassInfo) {
-	d, ok := o.UpValues["dimensions"]
+	d, ok := o.UpValues.Get("dimensions")
 	if !ok {
 		lf.SetErrorMessage("dimensions is not defined")
 		return
 	}
-	dimensions, ok := d.(map[interface{}]interface{})
+	dimensions, ok := d.(*dvjson.OrderedMap)
 	if !ok {
 		lf.SetErrorMessage("dimensions must be an array")
 		return
 	}
-	n := len(dimensions)
+	n := dimensions.Size()
 	lf.WriteInt(n)
 	for i := 0; i < n; i++ {
-		v, ok := dimensions[i+1]
+		v, ok := dimensions.GetInt64ByInt64Key(i+1)
 		if !ok {
-			v = dimensions[int64(i+1)]
-		}
-		vl, ok := v.(int64)
-		if !ok {
-			r, ok := v.(int)
-			if !ok {
 				lf.SetErrorMessage("incorrect dimension type: must be a long integer")
 				return
-			}
-			vl = int64(r)
 		}
-		lf.WriteLong(vl)
+		lf.WriteLong(v)
 	}
-	sub, ok := o.UpValues["subAmounts"]
+	sub, ok := o.UpValues.Get("subAmounts")
 	if !ok {
 		lf.SetErrorMessage("subAmounts must be defined")
 		return
 	}
-	subAmounts, ok := sub.(map[interface{}]interface{})
+	subAmounts, ok := sub.(*dvjson.OrderedMap)
 	if !ok {
 		lf.SetErrorMessage("subAmounts are corrupted")
+                return
 	}
-	m := len(subAmounts)
+	m := subAmounts.Size()
 	for i := 0; i < m; i++ {
-		v, ok := subAmounts[i+1]
+		v, ok := subAmounts.GetInt64ByInt64Key(i+1)
 		if !ok {
-			v = subAmounts[int64(i+1)]
-		}
-		vl, ok := v.(int64)
-		if !ok {
-			r, ok := v.(int)
-			if !ok {
 				lf.SetErrorMessage("incorrect subAmount type: must be a long integer")
 				return
-			}
-			vl = int64(r)
 		}
-		lf.WriteLong(vl)
+		lf.WriteLong(v)
 	}
 }
 
 func torchStorageT7Writer(o *LuaObject, lf *LuaFileWriter, info *torchClassInfo) {
-	d, ok := o.UpValues["data"]
+	d, ok := o.UpValues.Get("data")
 	if !ok {
 		lf.SetErrorMessage("storage must have data field")
 		return
 	}
-	data, ok := d.(map[interface{}]interface{})
+	data, ok := d.(*dvjson.OrderedMap)
 	if !ok {
 		lf.SetErrorMessage("storage data is not an array")
 		return
 	}
-	amount := int64(len(data))
-	lf.WriteLong(int64(amount))
+	amount := int64(data.Size())
+	lf.WriteLong(amount)
 	var i int64
 	switch info.kind {
 	case NumberIsInt, NumberIsLong, NumberIsShort, NumberIsChar, NumberIsByte:
 		size := info.unitSize
 		for i = 0; i < amount; i++ {
-			v, ok := data[i+1]
-			if !ok {
-				v = data[int(i+1)]
-			}
+			v, ok := data.GetByInt64Key(i+1)
 			lf.WriteIntNumber(v, size)
 		}
 	case NumberIsDouble:
 		for i = 0; i < amount; i++ {
-			v, ok := data[i+1]
+			v, ok := data.GetByInt64Key(i+1)
 			if !ok {
-				v = data[int(i+1)]
+			    lf.SetErrorMessage("data is corrupted")
 			}
 			lf.WriteDoubleNumber(v)
 		}
 	case NumberIsFloat:
 		for i = 0; i < amount; i++ {
-			v, ok := data[i+1]
+			v, ok := data.GetByInt64Key(i+1)
 			if !ok {
-				v = data[int(i+1)]
+			    lf.SetErrorMessage("data is corrupted")
 			}
 			lf.WriteFloatNumber(v)
 		}
 	case NumberIsHalf:
 		for i = 0; i < amount; i++ {
-			v, ok := data[i+1]
+			v, ok := data.GetByInt64Key(i+1)
 			if !ok {
-				v = data[int(i+1)]
+			    lf.SetErrorMessage("data is corrupted")
 			}
 			lf.WriteHalfFloat(v)
 		}
