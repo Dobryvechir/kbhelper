@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
 	"log"
+	"time"
 )
 
 const (
@@ -27,7 +28,7 @@ func startDebugFragment() {
 			return
 		}
 	}
-	newConfig, ok := createDebugFragmentListConfig(fragmentListConfig)
+	newConfig, specials, ok := createDebugFragmentListConfig(fragmentListConfig)
 	if !ok {
 		return
 	}
@@ -40,7 +41,7 @@ func startDebugFragment() {
 	if !ok {
 		return
 	}
-	if runDvServer() {
+	if runDvServer(specials) {
 		log.Println("Successfully started fragment debug")
 	}
 }
@@ -58,12 +59,55 @@ func finishDebugFragment() {
 	log.Println("Successfully finished fragment debug")
 }
 
+func resetPod() {
+	deleteCurrentPod()
+}
+
+func raiseUpInCloud() {
+	distributionFolder := dvparser.GlobalProperties["DISTRIBUTION_FOLDER"]
+	templateImage := dvparser.GlobalProperties["TEMPLATE_IMAGE"]
+	htmlFolder := dvparser.GlobalProperties["POD_HTML_FOLDER"]
+	if distributionFolder=="" || templateImage=="" || htmlFolder=="" {
+		log.Printf("For up command, you must specify all of these parameters in dvserver.properties: DISTRIBUTION_FOLDER  TEMPLATE_IMAGE POD_HTML_FOLDER")
+		return
+	}
+	podName,_:=getCurrentPodName(true)
+	if podName=="" {
+		downCurrentMicroservice()
+		serviceName, ok:=getCurrentServiceName()
+		if !ok {
+			return
+		}
+		if !createMicroservice(serviceName, templateImage) {
+			log.Printf("Failed to create microservice for %s (%s)", serviceName, templateImage)
+			return
+		}
+		for i:=0;i<100;i++ {
+			time.Sleep(2 * time.Second)
+			podName,_=getCurrentPodName(true)
+			if podName!="" {
+				break
+			}
+		}
+		if podName=="" {
+			log.Printf("Waiting for pod %s getting up is timed out", serviceName)
+			return
+		}
+		time.Sleep(10 * time.Second)
+	}
+	synchronizeDirectory(podName, distributionFolder, htmlFolder)
+}
+
+func removeFromCloud() {
+	downCurrentMicroservice()
+}
+
 func main() {
+	fmt.Println(programName)
 	args := dvparser.InitAndReadCommandLine()
 	l := len(args)
 	if l < 1 {
-		fmt.Println(programName)
-		fmt.Println("Command line: DebugFragment start | DebugFragment finish")
+		fmt.Println("Command line: DebugFragment [start | finish | up | down | reset]")
 		return
 	}
 	switch args[0] {
@@ -71,8 +115,14 @@ func main() {
 		startDebugFragment()
 	case "finish":
 		finishDebugFragment()
+	case "up":
+		raiseUpInCloud()
+	case "down":
+		removeFromCloud()
+	case "reset":
+		resetPod()
 	default:
 		fmt.Println(programName)
-		fmt.Println("Command line: DebugFragment start | DebugFragment finish")
+		fmt.Println("Command line: DebugFragment [start | finish | up | down | reset]")
 	}
 }

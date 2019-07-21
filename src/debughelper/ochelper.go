@@ -19,8 +19,6 @@ import (
 var isOCLogined = false
 
 const (
-	authorization         = "Authorization"
-	contentType           = "Content-Type"
 	openShiftLogin        = "login https://{{{OPENSHIFT_SERVER}}}.{{{OPENSHIFT_DOMAIN}}}:{{{OPENSHIFT_PORT}}} -u {{{OPENSHIFT_LOGIN}}} -p {{{OPENSHIFT_PASS}}} --insecure-skip-tls-verify=true -n {{{OPENSHIFT_NAMESPACE}}}"
 	openShiftProject      = "\"{{{OPENSHIFT_NAMESPACE}}}\""
 	openShiftSecrets      = "export --insecure-skip-tls-verify secret %1-client-credentials"
@@ -38,27 +36,6 @@ type AccessToken struct {
 	NotBeforePolicy  int    `json:"not-before-policy"`
 	SessionState     string `json:"session_state"`
 	Scope            string `json:"scope"`
-}
-
-func getTempPath() string {
-	path := os.Getenv("TEMP")
-	if path != "" {
-		if _, err := os.Stat(path); err != nil {
-			return path
-		}
-	}
-	path = os.Getenv("TMP")
-	if path != "" {
-		if _, err := os.Stat(path); err != nil {
-			return path
-		}
-	}
-	path = "/temp"
-	if _, err := os.Stat(path); err != nil {
-		return path
-	}
-	log.Print("temporary folder is not available (define it is TEMP environment variable)")
-	return ""
 }
 
 func getTempPathSlashed() string {
@@ -247,4 +224,259 @@ func getSafeFileName(src string) string {
 		}
 	}
 	return string(data)
+}
+
+func getPodName(microserviceName string, silent bool) (name string, ok bool) {
+		if !ocLogin() {
+			return
+		}
+		cmdLine:="get pods"
+		info, ok:=runOCCommand(cmdLine)
+		if !ok {
+			log.Printf("Failed to get pods %s", info)
+			return
+		}
+		candidates:=make([]string,0,2)
+		pos:=strings.Index(info, microserviceName)
+		for pos>=0 {
+			c:= uint8(0)
+			if pos>0 {
+				c = info[pos-1]
+			}
+			if c<=' ' {
+				c=info[pos+len(microserviceName)]
+				if c=='-' {
+					endPos:=pos + len(microserviceName) + 1
+                    for ;endPos<len(info);endPos++ {
+                    	c:=info[endPos]
+                    	if !(c=='-' || c>='a' && c<='z' || c>='A' && c<='Z' || c>='0' && c<='9') {
+                    		break
+						}
+					}
+                    candidates = append(candidates, info[pos: endPos])
+                    pos = endPos
+				}
+			}
+			pos++
+			pos = strings.Index(info[pos:],microserviceName) + pos
+		}
+		n:=len(candidates)
+		if n==0 {
+			if !silent {
+				log.Printf("Pod for microservice %s does not exist in the cloud's project", microserviceName)
+			}
+			return
+		}
+		candidate:=candidates[0]
+		for j:=1;j<n;j++ {
+			s := candidates[j]
+			if len(s)<len(candidate) {
+				candidate = s
+			}
+		}
+		return candidate, true
+}
+
+func getCurrentServiceName() (name string, ok bool) {
+	name = dvparser.GlobalProperties[fragmentServiceName]
+	if name=="" {
+		name = dvparser.GlobalProperties[fragmentMicroServiceName]
+		if name=="" {
+			log.Printf("you must specify the fragment microservice name in %s in dvserver.properties", fragmentMicroServiceName)
+			return
+		}
+	}
+	return name, true
+}
+
+func getCurrentPodName(silent bool) (name string, ok bool) {
+	name, ok=getCurrentServiceName()
+	if !ok {
+		return
+	}
+	return getPodName(name, silent)
+}
+
+func deleteCurrentPod() bool {
+	name, ok:=getCurrentPodName(false)
+	if !ok {
+		return false
+	}
+	cmdLine:="delete pod " + name
+	info, ok:=runOCCommand(cmdLine)
+	if !ok {
+		log.Printf("Failed to delete pod %s", name)
+		return false
+	}
+	log.Println(info)
+	return true
+}
+
+func downWholeMicroservice(microserviceName string) bool {
+	if !ocLogin() {
+		return false
+	}
+	cmdLine:="delete all -l name="+microserviceName
+	info, ok:=runOCCommand(cmdLine)
+	if !ok {
+		log.Printf("Failed to execute %s", cmdLine)
+	} else {
+		log.Println(info)
+	}
+	cmdLine="delete deploymentconfig "+microserviceName
+	info, ok=runOCCommand(cmdLine)
+	if !ok {
+		log.Printf("Failed to execute %s", cmdLine)
+	} else {
+		log.Println(info)
+	}
+	cmdLine="delete configmaps "+microserviceName+".monitoring-config"
+	info, ok=runOCCommand(cmdLine)
+	if !ok {
+		log.Printf("Failed to execute %s", cmdLine)
+	} else {
+		log.Println(info)
+	}
+	cmdLine="delete service "+microserviceName
+	info, ok=runOCCommand(cmdLine)
+	if !ok {
+		log.Printf("Failed to execute %s", cmdLine)
+	} else {
+		log.Println(info)
+	}
+	cmdLine="delete routes "+microserviceName
+	info, ok=runOCCommand(cmdLine)
+	if !ok {
+		log.Printf("Failed to execute %s", cmdLine)
+	} else {
+		log.Println(info)
+	}
+	return true
+}
+
+func downCurrentMicroservice() bool {
+	name, ok:=getCurrentPodName(false)
+	if !ok {
+		return false
+	}
+	return downWholeMicroservice(name)
+}
+
+func getTempPath() string {
+	path := os.Getenv("TEMP")
+	if path != "" {
+		if _, err := os.Stat(path); err != nil {
+			return path
+		}
+	}
+	path = os.Getenv("TMP")
+	if path != "" {
+		if _, err := os.Stat(path); err != nil {
+			return path
+		}
+	}
+	path = "/temp"
+	if _, err := os.Stat(path); err != nil {
+		return path
+	}
+	log.Print("temporary folder is not available (define it is TEMP environment variable)")
+	return ""
+}
+
+func createClientCredentials(user string, pw string, microserviceName string) bool {
+	yaml := "apiVersion: v1\ndata:\n  password: >-\n    " +
+		pw +
+		"\n  username: " +
+		user +
+		"\nkind: Secret\nmetadata:\n  name: " +
+		microserviceName +
+		"-client-credentials" +
+		"\n  namespace: " +
+		dvparser.GlobalProperties["OPENSHIFT_NAMESPACE"] +
+		"\ntype: Opaque\n"
+    path:=getTempPathSlashed() + "__dobryvechir__debug_fragments_secret.yaml"
+    err:=ioutil.WriteFile(path, []byte(yaml), 0466)
+    if err!=nil {
+    	log.Printf("Cannot temporarily save a secret file %s", path)
+    	return false
+	}
+	cmdLine:="create -f "+path
+	info, ok:=runOCCommand(cmdLine)
+	if !ok {
+		log.Printf("Failed to execute %s", cmdLine)
+	} else {
+		log.Println(info)
+	}
+	return true
+
+}
+
+func getIdentityProviderClientCredentials(microServiceName string) (user string, pw string, ok bool) {
+
+}
+
+func registerUserCredentialsWithIdentityProvider(user, pw, microServiceName string) bool {
+
+}
+
+func createMicroservice(microserviceName string, templateImage string) bool {
+	if !ocLogin() {
+		return false
+	}
+	_, _, ok:=getOpenshiftSecrets(microserviceName)
+	if !ok {
+		user, pw, ok:=getIdentityProviderClientCredentials(microserviceName)
+		if !ok {
+			return false
+		}
+		if !createClientCredentials(user, pw, microserviceName) {
+			return false
+		}
+		if !registerUserCredentialsWithIdentityProvider(user, pw, microserviceName) {
+			return false
+		}
+	}
+	json, err:=ioutil.ReadFile(templateImage)
+	if err!=nil {
+		json=composeOpenShiftJsonTemplate(microserviceName, templateImage)
+	}
+	path:=getTempPathSlashed() + "__dobryvechir__debug_fragments_template.json"
+	err=ioutil.WriteFile(path, json, 0466)
+	if err!=nil {
+		log.Printf("Cannot temporarily save a secret file %s", path)
+		return false
+	}
+	cmdLine:="new-app -f "+path
+	info, ok:=runOCCommand(cmdLine)
+	if !ok {
+		log.Printf("Failed to execute %s", cmdLine)
+	} else {
+		log.Println(info)
+	}
+	return true
+
+	//TODO: create client credentials in keycloak
+	//TODO:  registerUserCredentialsWithIdentityProvider
+	//TODO:  find the way to start autoupdate of keycloak)
+	//TODO:  make a template for microservice,
+	//TODO: create module to provide __hash___ if not found
+	//TODO: start dvserver (last part)
+}
+
+func synchronizeDirectory(podName string, distributionFolder string, htmlFolder string) bool {
+	if _, err := os.Stat(distributionFolder); err!=nil {
+		log.Printf("DISTRIBUTION_FOLDER must point to a real folder, but it points to %s", distributionFolder)
+		return false
+	}
+	if !ocLogin() {
+		return false
+	}
+	cmdLine:="rsync "+distributionFolder+ " "+ podName + ":" + htmlFolder
+	info, ok:=runOCCommand(cmdLine)
+	if !ok {
+		log.Printf("Failed to execute %s", cmdLine)
+	} else {
+		log.Println(info)
+	}
+	return true
 }

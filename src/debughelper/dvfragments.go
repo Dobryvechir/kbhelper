@@ -28,6 +28,7 @@ type FragmentListConfig struct {
 const (
 	fragmentListConfiguration = "FRAGMENT_LIST_CONFIGURATION"
 	fragmentMicroServiceName  = "FRAGMENT_MICROSERVICE_NAME"
+	fragmentServiceName       = "FRAGMENT_SERVICE_NAME"
 	MuiPlatformUrl            = "MUI_URL"
 	MuiListUrl				  = "MUI_LIST_URL"
 )
