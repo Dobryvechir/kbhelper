@@ -4,7 +4,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/Dobryvechir/dvserver/src/dvnet"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
 	"io/ioutil"
@@ -30,7 +29,7 @@ const (
 	fragmentMicroServiceName  = "FRAGMENT_MICROSERVICE_NAME"
 	fragmentServiceName       = "FRAGMENT_SERVICE_NAME"
 	MuiPlatformUrl            = "MUI_URL"
-	MuiListUrl				  = "MUI_LIST_URL"
+	MuiListUrl                = "MUI_LIST_URL"
 )
 
 func readFragmentListConfigurationFromFile() (conf *FragmentListConfig, ok bool) {
@@ -41,25 +40,25 @@ func readFragmentListConfigurationFromFile() (conf *FragmentListConfig, ok bool)
 	}
 	data, err := ioutil.ReadFile(fileName)
 	if err != nil {
-		fmt.Printf("Your FRAGMENT_LIST_CONFIGURATION does not point to a valid file name: %s", fileName)
+		log.Printf("Your FRAGMENT_LIST_CONFIGURATION does not point to a valid file name: %s", fileName)
 		return
 	}
 	conf = &FragmentListConfig{}
 	err = json.Unmarshal(data, conf)
 	if err != nil {
-		fmt.Printf("Your file %s has not valid structure: %v", fileName, err)
+		log.Printf("Your file %s has not valid structure: %v", fileName, err)
 		return
 	}
 	if len(conf.Fragments) == 0 {
-		fmt.Printf("Your file %s has no fragment lists")
+		log.Printf("Your file %s has no fragment lists")
 		return
 	}
 	if conf.MicroServiceName == "" {
-		fmt.Printf("Your file %s has fragment with empty microserviceName")
+		log.Printf("Your file %s has fragment with empty microserviceName")
 		return
 	}
 	if conf.MicroServiceName != dvparser.GlobalProperties[fragmentMicroServiceName] {
-		fmt.Printf("Your file %s has microserviceName (%s) different from the name specified in %s (%s), but they must coincide", fileName, conf.MicroServiceName, fragmentMicroServiceName, dvparser.GlobalProperties[fragmentMicroServiceName])
+		log.Printf("Your file %s has microserviceName (%s) different from the name specified in %s (%s), but they must coincide", fileName, conf.MicroServiceName, fragmentMicroServiceName, dvparser.GlobalProperties[fragmentMicroServiceName])
 		return
 	}
 	ok = true
@@ -90,7 +89,7 @@ func getMicroServiceTemporaryFileName() string {
 	}
 	name := getSafeFileName(dvparser.GlobalProperties[fragmentMicroServiceName])
 	if name == "" {
-		fmt.Printf("You must specify %s", fragmentMicroServiceName)
+		log.Printf("You must specify %s", fragmentMicroServiceName)
 		return ""
 	}
 	return path + "__dobryvechir__debug__fragments__" + name + ".json"
@@ -106,12 +105,12 @@ func checkSaveProductionFragmentListConfiguration(conf *FragmentListConfig) bool
 	}
 	configStr, err := json.Marshal(conf)
 	if err != nil {
-		fmt.Printf("Error converting the config to json: %s", err.Error())
+		log.Printf("Error converting the config to json: %s", err.Error())
 		return false
 	}
 	err = ioutil.WriteFile(name, configStr, os.ModePerm)
 	if err != nil {
-		fmt.Printf("Error %s writing the config to file %s", err.Error(), name)
+		log.Printf("Error %s writing the config to file %s", err.Error(), name)
 		return false
 	}
 	return true
@@ -161,7 +160,7 @@ func getMuiUrl() string {
 	}
 	muiUrl, err := dvparser.ConvertByteArrayByGlobalProperties([]byte(url), "MUI_URL")
 	if err != nil {
-		fmt.Printf("Make sure you specified all constants in %s file dvserver.properties: %v", url, err)
+		log.Printf("Make sure you specified all constants in %s file dvserver.properties: %v", url, err)
 		return ""
 	}
 	return muiUrl
@@ -175,15 +174,15 @@ func getMuiUrlList() string {
 	}
 	muiUrl, err := dvparser.ConvertByteArrayByGlobalProperties([]byte(url), "MUI_URL")
 	if err != nil {
-		fmt.Printf("Make sure you specified all constants in %s file dvserver.properties: %v", url, err)
+		log.Printf("Make sure you specified all constants in %s file dvserver.properties: %v", url, err)
 		return ""
 	}
-	name:=dvparser.GlobalProperties[fragmentMicroServiceName]
+	name := dvparser.GlobalProperties[fragmentMicroServiceName]
 	if name == "" {
 		log.Printf("Please define %s in the properties file", fragmentMicroServiceName)
 		return ""
 	}
-	return strings.ReplaceAll(muiUrl,"%name", name)
+	return strings.ReplaceAll(muiUrl, "%name", name)
 }
 
 func registerFragment(muiContent []byte) bool {

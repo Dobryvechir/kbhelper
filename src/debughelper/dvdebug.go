@@ -5,6 +5,7 @@ package main
 import (
 	"encoding/json"
 	"github.com/Dobryvechir/dvserver/src/dvconfig"
+	"github.com/Dobryvechir/dvserver/src/dvmodules"
 	"github.com/Dobryvechir/dvserver/src/dvnet"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
 	"github.com/Dobryvechir/dvserver/src/dvprocessors"
@@ -340,8 +341,18 @@ func runDvServer(specials map[string]string) bool {
 	//create whole config
 	config := &dvconfig.DvConfig{Listen: ":" + port, Server: dvconfig.DvHostServer{BaseFolder: baseFolder, ExtraServer: extraServer}}
 	if extraServer == "" {
-		//TODO: for base, provide method using specials and replacing "__hash__" in js and css to real files
-
+		// for base, provide method using specials and replacing "__hash__" in js and css to real files
+		url:=""
+		for k:=range specials {
+			if url=="" {
+				url = k
+			} else {
+				url += "; " + k
+			}
+		}
+		if url!="" {
+			config.Server.Modules = []dvmodules.ModuleConfig{dvmodules.ModuleConfig{Name:"hashReplacer", Url:url, Params:[]string{"hash"}}}
+		}
 	} else {
 		//for net, provide replaces which __webpack transforms to unique webpack
 		newName := dobPrefix + makeLimitedWord(dvparser.GlobalProperties[fragmentMicroServiceName], len(webpackPrefix)-len(dobPrefix))
@@ -356,9 +367,9 @@ func runDvServer(specials map[string]string) bool {
 			Urls:   "**/vendor.js",
 			Params: []string{"socket(socketUrl, onSocketMessage);", "/* goodness */"}, //TODO: provide real words
 		}
-		//TODO: provide a special replacer for
+		//provided a special replacer for disabling web socket
 	}
 	//start dvserver
-
+    dvconfig.ServerStartByConfig(config)
 	return true
 }
