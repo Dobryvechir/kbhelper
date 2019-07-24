@@ -3,14 +3,19 @@
 package main
 
 import (
+	"github.com/Dobryvechir/dvserver/src/dvnet"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
 	"log"
+	"strconv"
 	"time"
 )
 
 const (
 	programName = "Debug Fragments 1.0" + author
 )
+
+var logDebugFragments = 0
+var logDebug = false
 
 func startDebugFragment() {
 	_, ok := getM2MToken("mui-fragments")
@@ -92,6 +97,9 @@ func raiseUpInCloud() {
 			log.Printf("Waiting for pod %s getting up is timed out", serviceName)
 			return
 		}
+		if logDebug {
+			log.Printf("Waiting for 10 seconds until the pod %s is ready (distribution folder=%s, html folder=%s)", podName, distributionFolder, htmlFolder)
+		}
 		time.Sleep(10 * time.Second)
 	}
 	synchronizeDirectory(podName, distributionFolder, htmlFolder)
@@ -108,6 +116,19 @@ func main() {
 	if l < 1 {
 		log.Println("Command line: DebugFragment [start | finish | up | down | reset]")
 		return
+	}
+	debugLevel := dvparser.GlobalProperties["DEBUG_LEVEL"]
+	if debugLevel != "" {
+		n, err := strconv.Atoi(debugLevel)
+		if err != nil {
+			log.Println("DEBUG_LEVEL must be integer")
+		} else {
+			logDebugFragments = n
+		}
+		logDebug = logDebugFragments > 0
+	}
+	if logDebugFragments & 4!=0 {
+		dvnet.DvNetLog = true
 	}
 	switch args[0] {
 	case "start":

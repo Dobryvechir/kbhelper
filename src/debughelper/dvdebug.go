@@ -370,6 +370,22 @@ func runDvServer(specials map[string]string) bool {
 		//provided a special replacer for disabling web socket
 	}
 	//start dvserver
-    dvconfig.ServerStartByConfig(config)
+	if logDebug {
+		path:=getTempPathSlashed()+"___dobryvechir__debug__fragments__dvserver__config.json"
+		data, err:=json.Marshal(config)
+		if err==nil {
+			err=ioutil.WriteFile(path, data, 0466)
+		}
+		if err==nil {
+			log.Printf("Config was written in %s", path)
+		} else {
+			log.Printf("Failed to save config for debup purposese into %s", path)
+		}
+	}
+	if logDebugFragments & 2 ==0 {
+		dvconfig.ServerStartByConfig(config)
+	} else {
+		log.Printf("server has not been started for debug purpose (%d)",logDebugFragments)
+	}
 	return true
 }

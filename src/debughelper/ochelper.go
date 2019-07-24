@@ -70,6 +70,9 @@ func runOCCommand(params string) (string, bool) {
 	if fileName == "" {
 		return "", false
 	}
+	if logDebug {
+		log.Printf("Executing: oc %s", params)
+	}
 	cmd := exec.Command("ddoc", params+" >"+fileName)
 	stdoutStderr, err := cmd.CombinedOutput()
 	if err != nil {
@@ -86,7 +89,13 @@ func runOCCommand(params string) (string, bool) {
 		return "", false
 	}
 	os.Remove(fileName)
-	return string(data), true
+	res:=string(data)
+	if logDebug {
+		log.Println("-------------------START EXECUTING OC RESULT --------------------")
+		log.Println(res)
+		log.Println("____________________END EXECUTING OC RESULT______________________")
+	}
+	return res, true
 }
 
 func ocLogin() bool {
