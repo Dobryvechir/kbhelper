@@ -13,15 +13,27 @@ import (
 )
 
 type UiFragment struct {
-	FragmentName string   `json:"fragmentName"`
-	JsResources  []string `json:"jsResources"`
-	CssResources []string `json:"cssResources"`
-	Labels       []string `json:"labels"`
+	FragmentName              string   `json:"fragmentName"`
+	JsResources               []string `json:"jsResources"`
+	CssResources              []string `json:"cssResources"`
+	Labels                    []string `json:"labels"`
+	ImageUrl                  string   `json:"imageUrl"`
+	DescriptionLocalizationId string   `json:"descriptionLocalizationId"`
+	SkipLocalization          bool     `json:"skipLocalization"`
 }
 
 type FragmentListConfig struct {
 	MicroServiceName string       `json:"microserviceName"`
 	Fragments        []UiFragment `json:"fragments"`
+}
+
+type FragmentItemConfig struct {
+	Id               string     `json:"id"`
+	Version          string     `json:"version"`
+	TransactionId    string     `json:"transactionId"`
+	InternalName     string     `json:"internalName"`
+	MicroServiceName string     `json:"microserviceName"`
+	Fragment        UiFragment `json:"fragment"`
 }
 
 const (
@@ -82,7 +94,7 @@ func isFragmentListConfigurationForProduction(conf *FragmentListConfig) bool {
 	return true
 }
 
-func getMicroServiceTemporaryFileName() string {
+func getMicroServiceTemporaryFileName(isOrigin bool) string {
 	path := getTempPathSlashed()
 	if path == "" {
 		return ""
@@ -92,14 +104,20 @@ func getMicroServiceTemporaryFileName() string {
 		log.Printf("You must specify %s", fragmentMicroServiceName)
 		return ""
 	}
+	if isOrigin {
+		name +="_origin"
+	} else {
+		name +="_debug"
+	}
 	return path + "__dobryvechir__debug__fragments__" + name + ".json"
 }
 
 func checkSaveProductionFragmentListConfiguration(conf *FragmentListConfig) bool {
+	isOrigin:=true
 	if !isFragmentListConfigurationForProduction(conf) {
-		return true
+		isOrigin = false
 	}
-	name := getMicroServiceTemporaryFileName()
+	name := getMicroServiceTemporaryFileName(isOrigin)
 	if name == "" {
 		return false
 	}
@@ -117,7 +135,7 @@ func checkSaveProductionFragmentListConfiguration(conf *FragmentListConfig) bool
 }
 
 func retrieveProductionFragmentListConfiguration() (data []byte, ok bool) {
-	name := getMicroServiceTemporaryFileName()
+	name := getMicroServiceTemporaryFileName(true)
 	if name == "" {
 		return
 	}
@@ -166,7 +184,7 @@ func getMuiUrl() string {
 	return muiUrl
 }
 
-func getMuiUrlList() string {
+func getMuiFragmentUrl(name string) string {
 	url := dvparser.GlobalProperties[MuiListUrl]
 	if url == "" {
 		log.Printf("You must specify mui url as %s\n", MuiListUrl)
@@ -177,7 +195,6 @@ func getMuiUrlList() string {
 		log.Printf("Make sure you specified all constants in %s file dvserver.properties: %v", url, err)
 		return ""
 	}
-	name := dvparser.GlobalProperties[fragmentMicroServiceName]
 	if name == "" {
 		log.Printf("Please define %s in the properties file", fragmentMicroServiceName)
 		return ""
@@ -200,31 +217,39 @@ func registerFragment(muiContent []byte) bool {
 	return true
 }
 
-func readCurrentFragmentListConfigurationFromCloud() (conf *FragmentListConfig, ok bool) {
+func readCurrentFragmentListConfigurationFromCloud(names []string) (conf *FragmentListConfig, ok bool) {
 	headers := map[string]string{"cache-control": "no-cache"}
-	url := getMuiUrlList()
-	if url == "" {
-		return
-	}
-	res, err := dvnet.NewRequest("GET", url, "", headers, 30)
-	if err != nil {
-		errMessage := err.Error()
-		if strings.Index(errMessage, "404") >= 0 {
-			ok = true
+	conf = &FragmentListConfig{Fragments:make([]UiFragment,0, 10)}
+	for _, name := range names {
+		url := getMuiFragmentUrl(name)
+		if url == "" {
+			continue
+		}
+		res, err := dvnet.NewRequest("GET", url, "", headers, 30)
+		if err != nil {
+			errMessage := err.Error()
+			if strings.Index(errMessage, "404") >= 0 {
+				continue
+			}
+			log.Println(string(res))
+			log.Printf("Error registering mui fragment at %s: %v", url, errMessage)
 			return
 		}
-		log.Println(string(res))
-		log.Printf("Error registering mui fragment at %s: %v", url, errMessage)
-		return
+		fragment := &FragmentItemConfig{}
+		err = json.Unmarshal(res, fragment)
+		if err != nil {
+			log.Printf("Error in structure of mui fragment in %s ", string(res))
+			conf = nil
+			return
+		}
+		if fragment.Fragment.FragmentName!="" {
+			conf.Fragments = append(conf.Fragments, fragment.Fragment)
+			if conf.MicroServiceName=="" {
+				conf.MicroServiceName = fragment.MicroServiceName
+			}
+		}
 	}
-	conf = &FragmentListConfig{}
-	err = json.Unmarshal(res, conf)
-	if err != nil {
-		log.Printf("Error in structure of mui fragment in %s ", string(res))
-		conf = nil
-		return
-	}
-	if !checkSaveProductionFragmentListConfiguration(conf) {
+	if len(conf.Fragments)==0 || conf.MicroServiceName=="" || !isFragmentListConfigurationForProduction(conf) {
 		return
 	}
 	ok = true

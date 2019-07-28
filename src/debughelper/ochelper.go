@@ -25,6 +25,8 @@ const (
 	openShiftExpose       = "expose svc/%1"
 	openShiftEnsureRoutes = "OPENSHIFT_ENSURE_ROUTES"
 	openShiftDeleteSecret = "delete secret "
+	tenantIdProperty      = "TENANT_ID"
+	tenantIdUrl           = "TENANT_ID_URL"
 )
 
 type AccessToken struct {
@@ -65,37 +67,42 @@ func getTemporaryFileName() string {
 	return ""
 }
 
-func runOCCommand(params string) (string, bool) {
-	fileName := getTemporaryFileName()
-	if fileName == "" {
-		return "", false
-	}
+func runOCCommandFailureAllowed(params string, allowedFailureMessages []string) (string, int) {
+	paramList := strings.Split(params, " ")
 	if logDebug {
 		log.Printf("Executing: oc %s", params)
 	}
-	cmd := exec.Command("ddoc", params+" >"+fileName)
+	cmd := exec.Command("oc", paramList...)
 	stdoutStderr, err := cmd.CombinedOutput()
-	if err != nil {
-		os.Remove(fileName)
-		log.Println(stdoutStderr)
-		log.Println("Error: " + err.Error())
-		log.Println("You should have installed openshift client (oc) and put it path to PATH environment variable")
-		return "", false
-	}
-	data, err := ioutil.ReadFile(fileName)
-	if err != nil {
-		log.Printf("Error reading temporary file: %s", fileName)
-		log.Print("Probably you have problems with oc (openshift client) program")
-		return "", false
-	}
-	os.Remove(fileName)
-	res:=string(data)
+	res := string(stdoutStderr)
 	if logDebug {
 		log.Println("-------------------START EXECUTING OC RESULT --------------------")
 		log.Println(res)
 		log.Println("____________________END EXECUTING OC RESULT______________________")
 	}
-	return res, true
+	if err != nil {
+		n := len(allowedFailureMessages)
+		for i := 0; i < n; i++ {
+			if strings.Index(res, allowedFailureMessages[i]) >= 0 {
+				return res, i + 1
+			}
+		}
+		if !logDebug {
+			log.Println(res)
+		}
+		errMessage := err.Error()
+		log.Println("Error: " + errMessage)
+		if strings.Index(errMessage, "not found") >= 0 {
+			log.Println("You should have installed openshift client (oc) and put it path to PATH environment variable")
+		}
+		return "", -1
+	}
+	return res, 0
+}
+
+func runOCCommand(params string) (string, bool) {
+	res, status := runOCCommandFailureAllowed(params, nil)
+	return res, status >= 0
 }
 
 func ocLogin() bool {
@@ -172,7 +179,28 @@ func getOpenshiftSecrets(microserviceName string) (user string, ps string, okFin
 	return
 }
 
+func ensureTenantIdInGlobalProperties() bool {
+	if dvparser.GlobalProperties[tenantIdProperty] != "" {
+		return true
+	}
+	url := dvparser.GlobalProperties[tenantIdUrl]
+	if url == "" {
+		log.Printf("Tenant Id Url (%s) must be specified in dvserver.properties", tenantIdUrl)
+		return false
+	}
+	res, err := dvnet.NewRequest("GET", url, "", nil, 30)
+	if err != nil {
+		log.Println(err.Error())
+		return false
+	}
+	dvparser.GlobalProperties[tenantIdProperty] = string(res)
+	return true
+}
+
 func getM2MToken(microserviceName string) (token string, okFinal bool) {
+	if !ensureTenantIdInGlobalProperties() {
+		return
+	}
 	username, passwrd, ok := getOpenshiftSecrets(microserviceName)
 	if !ok {
 		return
@@ -210,12 +238,12 @@ func openshiftEnsureExposeRoutes() bool {
 	if len(routes) != 0 {
 		for _, v := range routes {
 			cmdLine := strings.ReplaceAll(openShiftExpose, "%1", v)
-			res, ok := runOCCommand(cmdLine)
-			if !ok {
+			res, status := runOCCommandFailureAllowed(cmdLine, []string{"AlreadyExist"})
+			if status < 0 {
 				return false
 			}
-			if strings.Index(res, "exposed") < 0 && strings.Index(res, "AlreadyExist") < 0 {
-				log.Printf("Unrecognized response to %s : %s", cmdLine, res)
+			if status == 0 && strings.Index(res, "exposed") < 0 {
+				log.Printf("Warning: Unrecognized response to %s : %s", cmdLine, res)
 			}
 		}
 	}
@@ -373,18 +401,18 @@ func downCurrentMicroservice() bool {
 func getTempPath() string {
 	path := os.Getenv("TEMP")
 	if path != "" {
-		if _, err := os.Stat(path); err != nil {
+		if _, err := os.Stat(path); err == nil {
 			return path
 		}
 	}
 	path = os.Getenv("TMP")
 	if path != "" {
-		if _, err := os.Stat(path); err != nil {
+		if _, err := os.Stat(path); err == nil {
 			return path
 		}
 	}
 	path = "/temp"
-	if _, err := os.Stat(path); err != nil {
+	if _, err := os.Stat(path); err == nil {
 		return path
 	}
 	log.Print("temporary folder is not available (define it is TEMP environment variable)")
@@ -422,7 +450,7 @@ func createClientCredentials(user string, pw string, microserviceName string) bo
 
 func getIdentityProviderClientCredentials(microServiceName string) (user string, pw string, ok bool) {
 	//TODO: create client credentials in keycloak
-	res:= base64.StdEncoding.EncodeToString([]byte(microServiceName))
+	res := base64.StdEncoding.EncodeToString([]byte(microServiceName))
 	return res, res, true
 }
 

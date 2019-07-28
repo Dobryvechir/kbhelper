@@ -161,8 +161,11 @@ func makeRefInfo(name string, runtime []*RefInfo) (*dvurl.UrlPool, bool) {
 		return nil, false
 	}
 	info := make(map[string]string)
-	err := json.Unmarshal([]byte(data), info)
+	err := json.Unmarshal([]byte(data), &info)
 	if err != nil {
+		if logDebug {
+			log.Println(err.Error())
+		}
 		log.Printf("Rules %s must be a string map as follows:{\"key\":\"value\", \"key\":\"value\"}", name)
 		return nil, false
 	}
