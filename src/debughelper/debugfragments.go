@@ -54,6 +54,15 @@ func startDebugFragment() int {
 }
 
 func finishDebugFragment() int {
+	fragmentListConfig, ok := readFragmentListConfigurationFromFile()
+	if !ok {
+		return ErrorExitCode
+	}
+	ok = checkCloudConfigIsOriginal(fragmentListConfig)
+	if ok {
+		log.Println("Fragments are already in production state")
+		return SuccessExitCode
+	}
 	muiContent, ok := retrieveProductionFragmentListConfiguration()
 	if !ok {
 		return ErrorExitCode

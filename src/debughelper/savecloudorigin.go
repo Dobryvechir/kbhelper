@@ -32,6 +32,15 @@ func saveCloudConfigForThisFragment(fragmentListConfig *FragmentListConfig, toke
 	return true
 }
 
+func checkCloudConfigIsOriginal(config *FragmentListConfig) bool {
+	names:=getFragmentNames(config)
+	if len(names)==0 {
+		return true
+	}
+	_, ok := readCurrentFragmentListConfigurationFromCloud(names)
+	return ok
+}
+
 func saveToMuiFragmentDatabase(config *FragmentListConfig, token string) bool {
 	//TODO: save to mongo database (collection = "debug_fragments")
 	//TODO: id = microserviceName, data = config as json
