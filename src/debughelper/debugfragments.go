@@ -150,7 +150,7 @@ func main() {
 		}
 		logDebug = logDebugFragments > 0
 	}
-	if logDebugFragments&4 != 0 {
+	if logDebugFragments & 2 != 0 {
 		dvnet.DvNetLog = true
 	}
 	exitCode := ErrorExitCode

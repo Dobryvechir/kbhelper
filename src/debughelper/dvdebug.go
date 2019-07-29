@@ -380,15 +380,17 @@ func runDvServer(specials map[string]string) bool {
 			err=ioutil.WriteFile(path, data, 0466)
 		}
 		if err==nil {
-			log.Printf("Config was written in %s", path)
+			if logDebug {
+				log.Printf("Config was written in %s", path)
+			}
 		} else {
 			log.Printf("Failed to save config for debup purposese into %s", path)
 		}
 	}
-	if logDebugFragments & 2 ==0 {
+	if logDebugFragments & 128 ==0 {
 		dvconfig.ServerStartByConfig(config)
 	} else {
-		log.Printf("server has not been started for debug purpose (%d)",logDebugFragments)
+		log.Printf("server has not been started for debug purpose (0x80 & 0x%x)",logDebugFragments)
 	}
 	return true
 }

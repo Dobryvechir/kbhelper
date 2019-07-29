@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"github.com/Dobryvechir/dvserver/src/dvnet"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
@@ -13,13 +14,13 @@ import (
 )
 
 type UiFragment struct {
-	FragmentName              string   `json:"fragmentName"`
-	JsResources               []string `json:"jsResources"`
-	CssResources              []string `json:"cssResources"`
-	Labels                    []string `json:"labels"`
-	ImageUrl                  string   `json:"imageUrl"`
-	DescriptionLocalizationId string   `json:"descriptionLocalizationId"`
-	SkipLocalization          bool     `json:"skipLocalization"`
+	FragmentName string   `json:"fragmentName"`
+	JsResources  []string `json:"jsResources"`
+	CssResources []string `json:"cssResources"`
+	Labels       []string `json:"labels"`
+	ImageUrl     string   `json:"imageUrl"`
+	//DescriptionLocalizationId string   `json:"descriptionLocalizationId"`
+	//SkipLocalization          bool     `json:"skipLocalization"`
 }
 
 type FragmentListConfig struct {
@@ -33,7 +34,7 @@ type FragmentItemConfig struct {
 	TransactionId    string     `json:"transactionId"`
 	InternalName     string     `json:"internalName"`
 	MicroServiceName string     `json:"microserviceName"`
-	Fragment        UiFragment `json:"fragment"`
+	Fragment         UiFragment `json:"fragment"`
 }
 
 const (
@@ -105,15 +106,15 @@ func getMicroServiceTemporaryFileName(isOrigin bool) string {
 		return ""
 	}
 	if isOrigin {
-		name +="_origin"
+		name += "_origin"
 	} else {
-		name +="_debug"
+		name += "_debug"
 	}
 	return path + "__dobryvechir__debug__fragments__" + name + ".json"
 }
 
 func checkSaveProductionFragmentListConfiguration(conf *FragmentListConfig) bool {
-	isOrigin:=true
+	isOrigin := true
 	if !isFragmentListConfigurationForProduction(conf) {
 		isOrigin = false
 	}
@@ -202,15 +203,30 @@ func getMuiFragmentUrl(name string) string {
 	return strings.ReplaceAll(muiUrl, "%name", name)
 }
 
+var fragmentPartsToBeRemoved = [][]byte{
+	[]byte(",\"labels\":\"\""),
+	[]byte(",\"imageUrl\":\"\""),
+}
+
 func registerFragment(muiContent []byte) bool {
-	headers := map[string]string{"cache-control": "no-cache"}
+	headers := map[string]string{"cache-control": "no-cache", "Content-Type": "application/json"}
 	url := getMuiUrl()
 	if url == "" {
 		return false
 	}
+	n := len(fragmentPartsToBeRemoved)
+	for i := 0; i < n; i++ {
+		s := fragmentPartsToBeRemoved[i]
+		pos := bytes.Index(muiContent, s)
+		if pos >= 0 {
+			k := pos + len(s)
+			muiContent = append(muiContent[:pos], muiContent[k:]...)
+		}
+	}
 	res, err := dvnet.NewRequest("POST", url, string(muiContent), headers, 30)
-	if err != nil {
-		log.Println(string(res))
+	message := string(res)
+	if err != nil || strings.Index(message, "SERVER_ERROR") > 0 {
+		log.Println(message)
 		log.Printf("Error registering mui fragment at %s: %v", url, err)
 		return false
 	}
@@ -219,7 +235,7 @@ func registerFragment(muiContent []byte) bool {
 
 func readCurrentFragmentListConfigurationFromCloud(names []string) (conf *FragmentListConfig, ok bool) {
 	headers := map[string]string{"cache-control": "no-cache"}
-	conf = &FragmentListConfig{Fragments:make([]UiFragment,0, 10)}
+	conf = &FragmentListConfig{Fragments: make([]UiFragment, 0, 10)}
 	for _, name := range names {
 		url := getMuiFragmentUrl(name)
 		if url == "" {
@@ -242,14 +258,14 @@ func readCurrentFragmentListConfigurationFromCloud(names []string) (conf *Fragme
 			conf = nil
 			return
 		}
-		if fragment.Fragment.FragmentName!="" {
+		if fragment.Fragment.FragmentName != "" {
 			conf.Fragments = append(conf.Fragments, fragment.Fragment)
-			if conf.MicroServiceName=="" {
+			if conf.MicroServiceName == "" {
 				conf.MicroServiceName = fragment.MicroServiceName
 			}
 		}
 	}
-	if len(conf.Fragments)==0 || conf.MicroServiceName=="" || !isFragmentListConfigurationForProduction(conf) {
+	if len(conf.Fragments) == 0 || conf.MicroServiceName == "" || !isFragmentListConfigurationForProduction(conf) {
 		return
 	}
 	ok = true
