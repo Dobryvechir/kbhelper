@@ -47,6 +47,10 @@ func startDebugFragment() int {
 	if !ok {
 		return ErrorExitCode
 	}
+	ok = resetMuiCache()
+	if !ok {
+		return ErrorExitCode
+	}
 	if runDvServer(specials) {
 		log.Println("Successfully started fragment debug")
 	}
@@ -69,6 +73,10 @@ func finishDebugFragment() int {
 	}
 	deregisterFragment()
 	ok = registerFragment(muiContent)
+	if !ok {
+		return ErrorExitCode
+	}
+	ok = resetMuiCache()
 	if !ok {
 		return ErrorExitCode
 	}
