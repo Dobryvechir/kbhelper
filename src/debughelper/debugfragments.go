@@ -51,6 +51,10 @@ func startDebugFragment() int {
 	if !ok {
 		return ErrorExitCode
 	}
+	ok = atStartExecutions()
+	if !ok {
+		return ErrorExitCode
+	}
 	if runDvServer(specials) {
 		log.Println("Successfully started fragment debug")
 	}
@@ -77,6 +81,10 @@ func finishDebugFragment() int {
 		return ErrorExitCode
 	}
 	ok = resetMuiCache()
+	if !ok {
+		return ErrorExitCode
+	}
+	ok = atFinishExecutions()
 	if !ok {
 		return ErrorExitCode
 	}
@@ -158,7 +166,7 @@ func main() {
 		}
 		logDebug = logDebugFragments > 0
 	}
-	if logDebugFragments & 2 != 0 {
+	if logDebugFragments&2 != 0 {
 		dvnet.DvNetLog = true
 	}
 	exitCode := ErrorExitCode

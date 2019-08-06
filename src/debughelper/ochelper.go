@@ -562,3 +562,33 @@ func synchronizeDirectory(podName string, distributionFolder string, htmlFolder 
 	}
 	return true
 }
+
+func openShiftScaleToReplicas(microService string, replicas int) bool {
+	cmdLine := "scale dc " + microService + " --replicas=" + strconv.Itoa(replicas)
+	info, ok := runOCCommand(cmdLine)
+	if !ok {
+		log.Printf("Failed to execute %s", cmdLine)
+	} else {
+		if strings.Index(info, "scaled") > 0 {
+			return true
+		}
+		log.Println(cmdLine)
+		log.Println(info)
+	}
+	return false
+}
+
+func openShiftSetEnvironment(microService string, env []string) bool {
+	cmdLine := "env dc " + microService + " " + strings.Join(env, " ")
+	info, ok := runOCCommand(cmdLine)
+	if !ok {
+		log.Printf("Failed to execute %s", cmdLine)
+	} else {
+		if strings.Index(info, "updated") > 0 {
+			return true
+		}
+		log.Println(cmdLine)
+		log.Println(info)
+	}
+	return false
+}
