@@ -1,34 +1,34 @@
 DEBUG_SOURCE=http://localhost:4200
-OPENSHIFT_LOGIN=sfaadmin1
-OPENSHIFT_PASS=om6aex8Shu
-OPENSHIFT_NAMESPACE=core-si-2-dev
-OPENSHIFT_SERVER=paas-apps2
-OPENSHIFT_DOMAIN=openshift.sdntest.netcracker.com
-OPENSHIFT_PORT=8443
-TENANT=Netcracker
+OPENSHIFT_LOGIN=*
+OPENSHIFT_PASS=*
+OPENSHIFT_NAMESPACE=*
+OPENSHIFT_SERVER=*
+OPENSHIFT_DOMAIN=*
+OPENSHIFT_PORT=*
+TENANT=*
 KEYCLOACK_COMMON_REALM=cloud-common
-FRAGMENT_LIST_CONFIGURATION=C:/slsintel/access-control/access-control-frontend/dist/access-control-frontend.json
-FRAGMENT_MICROSERVICE_NAME=access-control
+FRAGMENT_LIST_CONFIGURATION=*
+FRAGMENT_MICROSERVICE_NAME=*
 #AT_START_SCALE_ZERO={{{FRAGMENT_MICROSERVICE_NAME}}}
 #AT_FINISH_SCALE_ONE={{{FRAGMENT_MICROSERVICE_NAME}}}
-AT_START_SET_ENV=access-control:FRONTEND_MODE=ENABLED
-AT_FINISH_SET_ENV=access-control:FRONTEND_MODE=DISABLED
-AT_START_RESET=mui-platform
-AT_FINISH_RESET=mui-platform
+AT_START_SET_ENV=*:FRONTEND_MODE=ENABLED
+AT_FINISH_SET_ENV=*:FRONTEND_MODE=DISABLED
+AT_START_RESET=*
+AT_FINISH_RESET=*
 TENANT_ID_URL=http://public-gateway-{{{OPENSHIFT_NAMESPACE}}}.{{{OPENSHIFT_SERVER}}}.{{{OPENSHIFT_DOMAIN}}}/api/v2/tenant-manager/registration/tenants?dns={{{TENANT}}}
 M2MTOKEN_URL=http://identity-provider-{{{OPENSHIFT_NAMESPACE}}}.{{{OPENSHIFT_SERVER}}}.{{{OPENSHIFT_DOMAIN}}}/auth/realms/{{{KEYCLOACK_COMMON_REALM}}}/protocol/openid-connect/token
 MUI_URL=http://internal-gateway-service-{{{OPENSHIFT_NAMESPACE}}}.{{{OPENSHIFT_SERVER}}}.{{{OPENSHIFT_DOMAIN}}}/api/v1/mui-platform/fragments-configuration
 MUI_LIST_URL=http://internal-gateway-service-{{{OPENSHIFT_NAMESPACE}}}.{{{OPENSHIFT_SERVER}}}.{{{OPENSHIFT_DOMAIN}}}/api/v1/mui-platform/fragment?name=%name
 OPENSHIFT_ENSURE_ROUTES=identity-provider,internal-gateway-service
-#the next line is either IP address or COMPUTERNAME.netcracker.com (optionally with port number, for example, http://10.10.10.10:8010)
+#the next line is either IP address or COMPUTERNAME.example.com (optionally with port number, for example, http://10.10.10.10:8010)
 #the default port is 80, make sure that the port is free on your computer
-THIS_COMPUTER_URL=http://10.230.44.52
+THIS_COMPUTER_URL=THIS_COMPUTER_URL=*.example.com
 JS_REPLACEMENT={"**/ac*.js":"RUNTIME","**/gui*.js":"/assets/gui.js"}
 CSS_REPLACEMENT={"**":""}
 
 #all constants below are only for "up" command
-DISTRIBUTION_FOLDER=C:/slsintel/access-control/access-control-frontend/dist
-TEMPLATE_IMAGE=artifactorycn.netcracker.com:17012/cecton/nginx-with-substitution-filter
+DISTRIBUTION_FOLDER=*
+TEMPLATE_IMAGE=*
 POD_HTML_FOLDER=/usr/share/nginx/html
 DEBUG_LEVEL=7
 
