@@ -206,6 +206,8 @@ func getMuiFragmentUrl(name string) string {
 var fragmentPartsToBeRemoved = [][]byte{
 	[]byte(",\"labels\":\"\""),
 	[]byte(",\"imageUrl\":\"\""),
+	[]byte(",\"labels\":null"),
+	[]byte(",\"imageUrl\":null"),
 }
 
 func registerFragment(muiContent []byte) bool {
