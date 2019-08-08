@@ -9,6 +9,7 @@ import (
 	"github.com/Dobryvechir/dvserver/src/dvnet"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
 	"github.com/Dobryvechir/dvserver/src/dvprocessors"
+	"github.com/Dobryvechir/dvserver/src/dvtemp"
 	"github.com/Dobryvechir/dvserver/src/dvurl"
 	"io/ioutil"
 	"log"
@@ -374,7 +375,7 @@ func runDvServer(specials map[string]string) bool {
 	}
 	//start dvserver
 	if logDebug {
-		path:=getTempPathSlashed()+"___dobryvechir__debug__fragments__dvserver__config.json"
+		path:=dvtemp.GetTempPathSlashed()+"___dobryvechir__debug__fragments__dvserver__config.json"
 		data, err:=json.Marshal(config)
 		if err==nil {
 			err=ioutil.WriteFile(path, data, 0466)

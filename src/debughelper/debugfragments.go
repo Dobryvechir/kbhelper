@@ -4,24 +4,27 @@ package main
 
 import (
 	"github.com/Dobryvechir/dvserver/src/dvnet"
+	"github.com/Dobryvechir/dvserver/src/dvoc"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
 const (
-	programName     = "Debug Fragments 1.0" + author
-	SuccessExitCode = 0
-	ErrorExitCode   = 1
+	programName           = "Debug Fragments 1.0" + author
+	contentSecurityPolicy = "CONTENT_SECURITY_POLICY"
+	SuccessExitCode       = 0
+	ErrorExitCode         = 1
 )
 
 var logDebugFragments = 0
 var logDebug = false
 
 func startDebugFragment() int {
-	token, ok := getM2MToken("mui-platform")
+	token, ok := dvoc.GetM2MToken("mui-platform")
 	if !ok {
 		return ErrorExitCode
 	}
@@ -48,6 +51,10 @@ func startDebugFragment() int {
 		return ErrorExitCode
 	}
 	ok = resetMuiCache()
+	if !ok {
+		return ErrorExitCode
+	}
+	ok = dvoc.UpdateContentSecurityPolicyOnPods(dvparser.GlobalProperties[contentSecurityPolicy], dvparser.GlobalProperties[hostNameParam])
 	if !ok {
 		return ErrorExitCode
 	}
@@ -114,7 +121,7 @@ func raiseUpInCloud() int {
 		if !ok {
 			return ErrorExitCode
 		}
-		if !createMicroservice(serviceName, templateImage) {
+		if !dvoc.CreateMicroservice(serviceName, templateImage, "mui-platform") {
 			log.Printf("Failed to create microservice for %s (%s)", serviceName, templateImage)
 			return ErrorExitCode
 		}
@@ -134,7 +141,7 @@ func raiseUpInCloud() int {
 		}
 		time.Sleep(10 * time.Second)
 	}
-	if !synchronizeDirectory(podName, distributionFolder, htmlFolder) {
+	if !dvoc.WriteDirectoryToPod(podName, distributionFolder, htmlFolder) {
 		return ErrorExitCode
 	}
 	return SuccessExitCode
@@ -153,7 +160,7 @@ func main() {
 	dvparser.SetNumberOfBracketsInConfigParsing(2)
 	l := len(args)
 	if l < 1 {
-		log.Println("Command line: DebugFragment [start | finish | up | down | reset]")
+		log.Println("Command line: DebugFragment [start | finish | up | down | reset | execute [name]]")
 		return
 	}
 	debugLevel := dvparser.GlobalProperties["DEBUG_LEVEL"]
@@ -168,6 +175,7 @@ func main() {
 	}
 	if logDebugFragments&2 != 0 {
 		dvnet.DvNetLog = true
+		dvoc.LogDebug = 0
 	}
 	exitCode := ErrorExitCode
 	switch args[0] {
@@ -181,9 +189,18 @@ func main() {
 		exitCode = removeFromCloud()
 	case "reset":
 		exitCode = resetPod()
+	case "execute":
+		if l < 2 {
+			log.Println("Execute requires an additional parameter - name and EXECUTE_NAME_1, EXECUTE_NAME_2 ... properties in dvserver..properties")
+		} else {
+			ok := dvoc.ExecuteSequence("EXECUTE_" + strings.ToUpper(args[1]))
+			if ok {
+				exitCode = SuccessExitCode
+			}
+		}
 	default:
 		log.Println(programName)
-		log.Println("Command line: DebugFragment [start | finish | up | down | reset]")
+		log.Println("Command line: DebugFragment [start | finish | up | down | reset | execute [name]]")
 	}
 	if exitCode > 0 {
 		os.Exit(exitCode)

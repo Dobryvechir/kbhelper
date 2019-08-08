@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"github.com/Dobryvechir/dvserver/src/dvnet"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
+	"github.com/Dobryvechir/dvserver/src/dvtemp"
 	"io/ioutil"
 	"log"
 	"os"
@@ -96,11 +97,11 @@ func isFragmentListConfigurationForProduction(conf *FragmentListConfig) bool {
 }
 
 func getMicroServiceTemporaryFileName(isOrigin bool) string {
-	path := getTempPathSlashed()
+	path := dvtemp.GetTempPathSlashed()
 	if path == "" {
 		return ""
 	}
-	name := getSafeFileName(dvparser.GlobalProperties[fragmentMicroServiceName])
+	name := dvtemp.GetSafeFileName(dvparser.GlobalProperties[fragmentMicroServiceName])
 	if name == "" {
 		log.Printf("You must specify %s", fragmentMicroServiceName)
 		return ""
