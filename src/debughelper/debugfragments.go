@@ -141,7 +141,7 @@ func raiseUpInCloud() int {
 		}
 		time.Sleep(10 * time.Second)
 	}
-	if !dvoc.WriteDirectoryToPod(podName, distributionFolder, htmlFolder) {
+	if !dvoc.WriteDirectoryToPod(podName, distributionFolder, htmlFolder, "") {
 		return ErrorExitCode
 	}
 	return SuccessExitCode
@@ -193,7 +193,8 @@ func main() {
 		if l < 2 {
 			log.Println("Execute requires an additional parameter - name and EXECUTE_NAME_1, EXECUTE_NAME_2 ... properties in dvserver..properties")
 		} else {
-			ok := dvoc.ExecuteSequence("EXECUTE_" + strings.ToUpper(args[1]))
+			prefix := "EXECUTE_" + strings.ToUpper(args[1])
+			ok := dvoc.ExecuteSequence(prefix)
 			if ok {
 				exitCode = SuccessExitCode
 			}
