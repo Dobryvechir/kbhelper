@@ -202,7 +202,7 @@ func main() {
 		}
 
 	}
-	err = ioutil.WriteFile(os.Args[2], res, 0466)
+	err = ioutil.WriteFile(os.Args[2], res, 0664)
 	if err != nil {
 		fmt.Println(err)
 		return

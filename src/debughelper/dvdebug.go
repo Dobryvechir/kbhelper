@@ -346,16 +346,16 @@ func runDvServer(specials map[string]string) bool {
 	config := &dvconfig.DvConfig{Listen: ":" + port, Server: dvconfig.DvHostServer{BaseFolder: baseFolder, ExtraServer: extraServer}}
 	if extraServer == "" {
 		// for base, provide method using specials and replacing "__hash__" in js and css to real files
-		url:=""
-		for k:=range specials {
-			if url=="" {
+		url := ""
+		for k := range specials {
+			if url == "" {
 				url = k
 			} else {
 				url += "; " + k
 			}
 		}
-		if url!="" {
-			config.Server.Modules = []dvmodules.ModuleConfig{dvmodules.ModuleConfig{Name:"hashReplacer", Url:url, Params:[]string{"hash"}}}
+		if url != "" {
+			config.Server.Modules = []dvmodules.ModuleConfig{dvmodules.ModuleConfig{Name: "hashReplacer", Url: url, Params: []string{"hash"}}}
 		}
 	} else {
 		//for net, provide replaces which __webpack transforms to unique webpack
@@ -375,12 +375,12 @@ func runDvServer(specials map[string]string) bool {
 	}
 	//start dvserver
 	if logDebug {
-		path:=dvtemp.GetTempPathSlashed()+"___dobryvechir__debug__fragments__dvserver__config.json"
-		data, err:=json.Marshal(config)
-		if err==nil {
-			err=ioutil.WriteFile(path, data, 0466)
+		path := dvtemp.GetTempPathSlashed() + "___dobryvechir__debug__fragments__dvserver__config.json"
+		data, err := json.Marshal(config)
+		if err == nil {
+			err = ioutil.WriteFile(path, data, 0664)
 		}
-		if err==nil {
+		if err == nil {
 			if logDebug {
 				log.Printf("Config was written in %s", path)
 			}
@@ -388,10 +388,10 @@ func runDvServer(specials map[string]string) bool {
 			log.Printf("Failed to save config for debup purposese into %s", path)
 		}
 	}
-	if logDebugFragments & 128 ==0 {
+	if logDebugFragments&128 == 0 {
 		dvconfig.ServerStartByConfig(config)
 	} else {
-		log.Printf("server has not been started for debug purpose (0x80 & 0x%x)",logDebugFragments)
+		log.Printf("server has not been started for debug purpose (0x80 & 0x%x)", logDebugFragments)
 	}
 	return true
 }

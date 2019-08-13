@@ -36,7 +36,7 @@ func readCredentials(secretPath string) (user string, pass string, err error) {
 }
 
 func writeToken(secretPath string, m2mToken string) error {
-	return ioutil.WriteFile(secretPath+"/m2mtoken", []byte(m2mToken), 0466)
+	return ioutil.WriteFile(secretPath+"/m2mtoken", []byte(m2mToken), 0664)
 }
 
 func getM2MToken(m2mTokenUrl string, username string, passwrd string) (string, error) {

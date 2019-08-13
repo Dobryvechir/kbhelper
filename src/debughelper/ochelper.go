@@ -13,7 +13,7 @@ func deleteCurrentPod() bool {
 	if !ok {
 		return false
 	}
-        return dvoc.DeletePod(name)
+	return dvoc.DeletePod(name)
 
 }
 
@@ -37,10 +37,34 @@ func getCurrentPodName(silent bool) (name string, ok bool) {
 	return dvoc.GetPodName(name, silent)
 }
 
-func downCurrentMicroservice() bool {
+func getMicroServiceDeleteOption() int {
+	mode := dvoc.MicroServiceDeleteForced
+	switch dvparser.GlobalProperties["MICROSERVICE_DELETE_MODE"] {
+	case "0", "FORCED", "":
+		mode = dvoc.MicroServiceDeleteForced
+	case "1", "SAVED":
+		mode = dvoc.MicroServiceDeleteTrySaveAndForceDelete
+	case "2", "SAFE":
+		mode = dvoc.MicroServiceDeleteSaveAndSafeDelete
+	default:
+		log.Printf("Unknown MICROSERVICE_DELETE_MODE option (available are FORCED (0), SAVED (1), SAFE (2))")
+	}
+	return mode
+}
+
+func getMicroServiceSaveNonDebug() bool {
+	saveNonDebug := true
+	switch dvparser.GlobalProperties["MICROSERVICE_SAVE_NON_DEBUG_ONLY"] {
+	case "false":
+		saveNonDebug = false
+	}
+	return saveNonDebug
+}
+
+func downCurrentMicroService() bool {
 	name, ok := getCurrentPodName(false)
 	if !ok {
 		return false
 	}
-	return dvoc.DownWholeMicroservice(name)
+	return dvoc.DownWholeMicroService(name, getMicroServiceDeleteOption(), getMicroServiceSaveNonDebug())
 }

@@ -39,7 +39,7 @@ func main() {
 		if dir != "" && dir != "." {
 			os.MkdirAll(dir, os.ModePerm)
 		}
-		err = ioutil.WriteFile(dst, data, 0466)
+		err = ioutil.WriteFile(dst, data, 0664)
 		if err != nil {
 			panic("Error: " + err.Error())
 		}

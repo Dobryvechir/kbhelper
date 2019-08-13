@@ -10,7 +10,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 )
 
 const (
@@ -24,10 +23,16 @@ var logDebugFragments = 0
 var logDebug = false
 
 func startDebugFragment() int {
+	microServiceName, ok := getCurrentServiceName()
+	if !ok {
+		log.Printf("Microservice is not specified in properties")
+		return ErrorExitCode
+	}
 	token, ok := dvoc.GetM2MToken("mui-platform")
 	if !ok {
 		return ErrorExitCode
 	}
+	dvoc.ReduceMicroServiceSaveInfo(microServiceName)
 	fragmentListConfig, ok := readFragmentListConfigurationFromFile()
 	if !ok {
 		return ErrorExitCode
@@ -116,39 +121,27 @@ func raiseUpInCloud() int {
 	}
 	podName, _ := getCurrentPodName(true)
 	if podName == "" {
-		downCurrentMicroservice()
+		downCurrentMicroService()
 		serviceName, ok := getCurrentServiceName()
 		if !ok {
 			return ErrorExitCode
 		}
-		if !dvoc.CreateMicroservice(serviceName, templateImage, "mui-platform") {
+		params := map[string]string{
+			"MICROSERVICE":          serviceName,
+			"MANAGING_MICROSERVICE": "mui-platform",
+		}
+		files := make(map[string]string)
+		files[htmlFolder] = distributionFolder
+		if !dvoc.CreateMicroService(params, files) {
 			log.Printf("Failed to create microservice for %s (%s)", serviceName, templateImage)
 			return ErrorExitCode
 		}
-		for i := 0; i < 100; i++ {
-			time.Sleep(2 * time.Second)
-			podName, _ = getCurrentPodName(true)
-			if podName != "" {
-				break
-			}
-		}
-		if podName == "" {
-			log.Printf("Waiting for pod %s getting up is timed out", serviceName)
-			return ErrorExitCode
-		}
-		if logDebug {
-			log.Printf("Waiting for 10 seconds until the pod %s is ready (distribution folder=%s, html folder=%s)", podName, distributionFolder, htmlFolder)
-		}
-		time.Sleep(10 * time.Second)
-	}
-	if !dvoc.WriteDirectoryToPod(podName, distributionFolder, htmlFolder, "") {
-		return ErrorExitCode
 	}
 	return SuccessExitCode
 }
 
 func removeFromCloud() int {
-	if !downCurrentMicroservice() {
+	if !downCurrentMicroService() {
 		return ErrorExitCode
 	}
 	return SuccessExitCode
