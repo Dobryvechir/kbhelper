@@ -155,6 +155,18 @@ func removeFromCloud() int {
 	return SuccessExitCode
 }
 
+func restoreCurrentMicroService() int {
+	serviceName, ok := getCurrentServiceName()
+	if !ok {
+		return ErrorExitCode
+	}
+	ok = dvoc.ExecuteSingleCommand(0, 0, dvoc.CommandMicroServiceRestore, serviceName)
+	if !ok {
+		return ErrorExitCode
+	}
+	return SuccessExitCode
+}
+
 func main() {
 	log.Println(programName)
 	args := dvparser.InitAndReadCommandLine()
@@ -188,6 +200,8 @@ func main() {
 		exitCode = raiseUpInCloud()
 	case "down":
 		exitCode = removeFromCloud()
+	case "restore":
+		exitCode = restoreCurrentMicroService()
 	case "reset":
 		exitCode = resetPod()
 	case "execute":
