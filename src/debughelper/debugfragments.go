@@ -55,6 +55,10 @@ func startDebugFragment() int {
 	if !ok {
 		return ErrorExitCode
 	}
+	ok = startUiConfiguration()
+	if !ok {
+		return ErrorExitCode
+	}
 	ok = resetMuiCache()
 	if !ok {
 		return ErrorExitCode
@@ -87,8 +91,12 @@ func finishDebugFragment() int {
 	if !ok {
 		return ErrorExitCode
 	}
-	deregisterFragment()
+	//deregisterFragment()
 	ok = registerFragment(muiContent)
+	if !ok {
+		return ErrorExitCode
+	}
+	ok = finishUiConfiguration()
 	if !ok {
 		return ErrorExitCode
 	}

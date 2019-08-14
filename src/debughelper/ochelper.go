@@ -8,6 +8,26 @@ import (
 	"log"
 )
 
+const (
+	uiConfiguration = "UI_CONFIGURATION_MICROSERVICE"
+)
+
+func startUiConfiguration() bool {
+	uiConfig := dvparser.GlobalProperties[uiConfiguration]
+	if uiConfig == "" {
+		return true
+	}
+	return dvoc.ExecuteSingleCommand(0, 0, dvoc.CommandMicroServiceUp, uiConfig)
+}
+
+func finishUiConfiguration() bool {
+	uiConfig := dvparser.GlobalProperties[uiConfiguration]
+	if uiConfig == "" {
+		return true
+	}
+	return dvoc.ExecuteSingleCommand(0, 0, dvoc.CommandMicroServiceRestore, uiConfig)
+}
+
 func deleteCurrentPod() bool {
 	name, ok := getCurrentPodName(false)
 	if !ok {
