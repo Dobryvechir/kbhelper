@@ -3,9 +3,11 @@
 package main
 
 import (
+	"github.com/Dobryvechir/dvserver/src/dvjson"
 	"github.com/Dobryvechir/dvserver/src/dvnet"
 	"github.com/Dobryvechir/dvserver/src/dvoc"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
+	"io/ioutil"
 	"log"
 	"os"
 	"strconv"
@@ -13,10 +15,11 @@ import (
 )
 
 const (
-	programName           = "Debug Fragments 1.0" + author
-	contentSecurityPolicy = "CONTENT_SECURITY_POLICY"
-	SuccessExitCode       = 0
-	ErrorExitCode         = 1
+	programName            = "Debug Fragments 1.0" + author
+	contentSecurityPolicy  = "CONTENT_SECURITY_POLICY"
+	SuccessExitCode        = 0
+	ErrorExitCode          = 1
+	commandLineExpectation = "Command line: DebugFragment [start | finish | up | down | reset | execute [name]] | json [file]"
 )
 
 var logDebugFragments = 0
@@ -173,7 +176,7 @@ func main() {
 	dvparser.SetNumberOfBracketsInConfigParsing(2)
 	l := len(args)
 	if l < 1 {
-		log.Println("Command line: DebugFragment [start | finish | up | down | reset | execute [name]]")
+		log.Println(commandLineExpectation)
 		return
 	}
 	debugLevel := dvparser.GlobalProperties["DEBUG_LEVEL"]
@@ -214,9 +217,41 @@ func main() {
 				exitCode = SuccessExitCode
 			}
 		}
+	case "json":
+		if l < 2 {
+			log.Println("json requires an additional parameter - file name (optional property JSON_TRASH, JSON_INDENT)")
+		} else {
+			trashStr := dvparser.ConvertToNonEmptyList(dvparser.GlobalProperties["JSON_TRASH"])
+			trash := dvjson.ConvertStringArrayToByteByteArray(trashStr)
+			indent := 4
+			s := dvparser.GlobalProperties["JSON_INDENT"]
+			if s != "" {
+				n, err := strconv.Atoi(s)
+				if err != nil {
+					log.Println("Error in JSON_INDENT - not an integer number")
+				} else {
+					indent = n
+				}
+			}
+			fileName := args[1]
+			data, err := ioutil.ReadFile(fileName)
+			if err != nil {
+				log.Printf("Error reading %s: %v", fileName, err)
+			} else {
+				data, err = dvjson.ReformatJson(data, indent, trash, 2)
+				if err != nil {
+					log.Printf("Error in json of %s: %v", fileName, err)
+				} else {
+					err = ioutil.WriteFile(fileName, data, 0664)
+					if err != nil {
+						log.Printf("Error writing %s: %v", fileName, err)
+					}
+				}
+			}
+		}
 	default:
 		log.Println(programName)
-		log.Println("Command line: DebugFragment [start | finish | up | down | reset | execute [name]]")
+		log.Println(commandLineExpectation)
 	}
 	if exitCode > 0 {
 		os.Exit(exitCode)
