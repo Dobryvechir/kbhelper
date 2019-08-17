@@ -7,6 +7,7 @@ import (
 	"github.com/Dobryvechir/dvserver/src/dvnet"
 	"github.com/Dobryvechir/dvserver/src/dvoc"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
+	"github.com/Dobryvechir/dvserver/src/dvtemp"
 	"io/ioutil"
 	"log"
 	"os"
@@ -194,6 +195,10 @@ func main() {
 		dvoc.LogDebug = 0
 	}
 	exitCode := ErrorExitCode
+	noCache := dvparser.GlobalProperties["NO_CACHE"]
+	if noCache != "" && noCache != "false" {
+		dvtemp.ResetAllLocalFileCache()
+	}
 	switch args[0] {
 	case "start":
 		exitCode = startDebugFragment()
