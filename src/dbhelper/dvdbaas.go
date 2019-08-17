@@ -8,7 +8,7 @@ import (
 	"github.com/Dobryvechir/dvserver/src/dvnet"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
 	"io/ioutil"
-        "strings"
+	"strings"
 )
 
 var copyright = "Copyright by Volodymyr Dobryvechir 2019"
@@ -51,7 +51,7 @@ func presentDbProperties(params map[string]string, m2mToken string, isDbTenantAw
 		fileName = "/dbaas-tenant"
 		headers["Tenant"] = tenant
 	}
-	res, err := dvnet.NewJsonRequest("PUT", url, body, headers, 30)
+	res, err := dvnet.NewJsonRequest("PUT", url, body, headers, dvnet.AveragePersistentOptions)
 	if err != nil {
 		fmt.Printf("Error getting db properties - %s (url=%s, body=%s, headers=%v)", err.Error(), url, body, headers)
 		panic("Fatal error")

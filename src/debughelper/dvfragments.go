@@ -162,7 +162,7 @@ func deregisterFragment() bool {
 		return false
 	}
 	body := "{\"microserviceName\":\"" + microServiceName + "\"}"
-	res, err := dvnet.NewRequest("DELETE", url, body, headers, 30)
+	res, err := dvnet.NewRequest("DELETE", url, body, headers, dvnet.AveragePersistentOptions)
 	if err != nil {
 		log.Println(string(res))
 		log.Printf("Error registering mui fragment at %s: %v", url, err)
@@ -226,7 +226,7 @@ func registerFragment(muiContent []byte) bool {
 			muiContent = append(muiContent[:pos], muiContent[k:]...)
 		}
 	}
-	res, err := dvnet.NewRequest("POST", url, string(muiContent), headers, 30)
+	res, err := dvnet.NewRequest("POST", url, string(muiContent), headers, dvnet.AveragePersistentOptions)
 	message := string(res)
 	if err != nil || strings.Index(message, "SERVER_ERROR") > 0 {
 		log.Println(message)
@@ -244,7 +244,7 @@ func readCurrentFragmentListConfigurationFromCloud(names []string) (conf *Fragme
 		if url == "" {
 			continue
 		}
-		res, err := dvnet.NewRequest("GET", url, "", headers, 30)
+		res, err := dvnet.NewRequest("GET", url, "", headers, dvnet.AveragePersistentOptions)
 		if err != nil {
 			errMessage := err.Error()
 			if strings.Index(errMessage, "404") >= 0 {

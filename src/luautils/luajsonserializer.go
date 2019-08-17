@@ -65,7 +65,7 @@ func ReadLuaResultJsonObject(fields []*dvjson.DvFieldInfo, context *LuaContext) 
 		if err != nil {
 			return nil, err
 		}
-		res.Put(k,vf)
+		res.Put(k, vf)
 	}
 	return res, nil
 }
@@ -112,6 +112,7 @@ func ReadLuaResultFromJson(fileName string, context *LuaContext) (*LuaResult, er
 		return nil, err
 	}
 	l := &LuaResult{data: make([]interface{}, 0, 1)}
+	//TODO: REDO because this method below has been significantly changed and improved, but incompatibly
 	parsed, err1 := dvjson.JsonFullParser(b)
 	if err1 != nil {
 		return nil, err1
@@ -127,6 +128,7 @@ func ReadLuaResultFromJson(fileName string, context *LuaContext) (*LuaResult, er
 			l.data = append(l.data, val1)
 		}
 	case dvjson.FIELD_OBJECT:
+		//TODO: Redo because of the complete incompatible improvement
 		res, err3 := ReadLuaResultJsonObject(parsed.GetDvFieldInfoHierarchy(), context)
 		if err3 != nil {
 			return nil, err3
@@ -155,12 +157,12 @@ func WriteLuaObjectInJson(w *dvjson.JsonWriter, data interface{}) {
 }
 
 func GetInterfaceKind(m *dvjson.OrderedMap) int {
-        if m.IsSimpleArray(1) {
+	if m.IsSimpleArray(1) {
 		return MapPureArray
 	}
-        if m.IsSimpleObject() {
-               return MapPureObject
-        }
+	if m.IsSimpleObject() {
+		return MapPureObject
+	}
 	return MapMixed
 }
 
@@ -170,8 +172,8 @@ func WriteMapInJson(w *dvjson.JsonWriter, m *dvjson.OrderedMap) {
 	switch kind {
 	case MapMixed:
 		w.StartArray()
-		for i:=0; i<n;i++ {
-                        k,v:=m.GetAt(i)
+		for i := 0; i < n; i++ {
+			k, v := m.GetAt(i)
 			w.StartObject()
 			w.PrintKey(KeyName)
 			WriteLuaObjectInJson(w, k)
@@ -192,8 +194,8 @@ func WriteMapInJson(w *dvjson.JsonWriter, m *dvjson.OrderedMap) {
 		w.EndArray()
 	case MapPureObject:
 		w.StartObject()
-		for i:=0;i<n;i++ {
-                        k,v:=m.Get(i)
+		for i := 0; i < n; i++ {
+			k, v := m.Get(i)
 			w.PrintKey(k.(string))
 			WriteLuaObjectInJson(w, v)
 		}

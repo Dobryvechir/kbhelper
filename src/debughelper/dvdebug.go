@@ -258,7 +258,7 @@ func createDebugFragmentListConfig(fragmentListConfig *FragmentListConfig) (conf
 		}
 		indexContent = string(data)
 	} else {
-		res, err := dvnet.NewRequest("GET", src, "", nil, 30)
+		res, err := dvnet.NewRequest("GET", src, "", nil, dvnet.AveragePersistentOptions)
 		if err != nil {
 			log.Printf("Cannot GET %s", src)
 			return

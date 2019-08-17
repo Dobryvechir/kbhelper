@@ -45,10 +45,10 @@ func getM2MToken(m2mTokenUrl string, username string, passwrd string) (string, e
 		"client_id":     username}
 	headers := map[string]string{"cache-control": "no-cache", "Content-Type": "application/x-www-form-urlencoded"}
 	var accessToken AccessToken = AccessToken{}
-	err := dvnet.LoadStructFormUrlEncoded("POST", m2mTokenUrl, body, headers, &accessToken, 30)
+	err := dvnet.LoadStructFormUrlEncoded("POST", m2mTokenUrl, body, headers, &accessToken, dvnet.AveragePersistentOptions)
 	if accessToken.TokenType == "" || accessToken.AccessToken == "" {
 		dvnet.DvNetLog = true
-		err = dvnet.LoadStructFormUrlEncoded("POST", m2mTokenUrl, body, headers, &accessToken, 1)
+		err = dvnet.LoadStructFormUrlEncoded("POST", m2mTokenUrl, body, headers, &accessToken, dvnet.AveragePersistentOptions)
 		if accessToken.TokenType == "" || accessToken.AccessToken == "" {
 			panic("Fatal error")
 		}

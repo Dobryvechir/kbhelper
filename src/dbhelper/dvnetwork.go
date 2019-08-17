@@ -81,7 +81,10 @@ func main() {
 			repeats = nrepeats
 		}
 	}
-	data, err := dvnet.NewRequest(method, url, body, headers, repeats)
+	options := map[string]interface{}{
+		"repeats": repeats,
+	}
+	data, err := dvnet.NewRequest(method, url, body, headers, options)
 	if err != nil {
 		fmt.Printf("Error: %s", err.Error())
 	} else {
