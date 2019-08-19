@@ -5,11 +5,11 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/Dobryvechir/dvserver/src/dvlog"
 	"github.com/Dobryvechir/dvserver/src/dvnet"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
 	"github.com/Dobryvechir/dvserver/src/dvtemp"
 	"io/ioutil"
-	"log"
 	"os"
 	"strings"
 )
@@ -60,30 +60,30 @@ const (
 func readFragmentListConfigurationFromFile() (conf *FragmentListConfig, ok bool) {
 	fileName := dvparser.GlobalProperties[fragmentListConfiguration]
 	if fileName == "" {
-		log.Println("specify FRAGMENT_LIST_CONFIGURATION as a path of file where fragment list is configured")
+		dvlog.PrintlnError("specify FRAGMENT_LIST_CONFIGURATION as a path of file where fragment list is configured")
 		return
 	}
 	data, err := ioutil.ReadFile(fileName)
 	if err != nil {
-		log.Printf("Your FRAGMENT_LIST_CONFIGURATION does not point to a valid file name: %s", fileName)
+		dvlog.PrintfError("Your FRAGMENT_LIST_CONFIGURATION does not point to a valid file name: %s", fileName)
 		return
 	}
 	conf = &FragmentListConfig{}
 	err = json.Unmarshal(data, conf)
 	if err != nil {
-		log.Printf("Your file %s has not valid structure: %v", fileName, err)
+		dvlog.PrintfError("Your file %s has not valid structure: %v", fileName, err)
 		return
 	}
 	if len(conf.Fragments) == 0 {
-		log.Printf("Your file %s has no fragment lists")
+		dvlog.PrintfError("Your file %s has no fragment lists")
 		return
 	}
 	if conf.MicroServiceName == "" {
-		log.Printf("Your file %s has fragment with empty microserviceName")
+		dvlog.PrintfError("Your file %s has fragment with empty microserviceName")
 		return
 	}
 	if conf.MicroServiceName != dvparser.GlobalProperties[fragmentMicroServiceName] {
-		log.Printf("Your file %s has microserviceName (%s) different from the name specified in %s (%s), but they must coincide", fileName, conf.MicroServiceName, fragmentMicroServiceName, dvparser.GlobalProperties[fragmentMicroServiceName])
+		dvlog.PrintfError("Your file %s has microserviceName (%s) different from the name specified in %s (%s), but they must coincide", fileName, conf.MicroServiceName, fragmentMicroServiceName, dvparser.GlobalProperties[fragmentMicroServiceName])
 		return
 	}
 	ok = true
@@ -114,7 +114,7 @@ func getMicroServiceTemporaryFileName(isOrigin bool) string {
 	}
 	name := dvtemp.GetSafeFileName(dvparser.GlobalProperties[fragmentMicroServiceName])
 	if name == "" {
-		log.Printf("You must specify %s", fragmentMicroServiceName)
+		dvlog.PrintfError("You must specify %s", fragmentMicroServiceName)
 		return ""
 	}
 	if isOrigin {
@@ -136,12 +136,12 @@ func checkSaveProductionFragmentListConfiguration(conf *FragmentListConfig) bool
 	}
 	configStr, err := json.Marshal(conf)
 	if err != nil {
-		log.Printf("Error converting the config to json: %s", err.Error())
+		dvlog.PrintfError("Error converting the config to json: %s", err.Error())
 		return false
 	}
 	err = ioutil.WriteFile(name, configStr, os.ModePerm)
 	if err != nil {
-		log.Printf("Error %s writing the config to file %s", err.Error(), name)
+		dvlog.PrintfError("Error %s writing the config to file %s", err.Error(), name)
 		return false
 	}
 	return true
@@ -154,7 +154,7 @@ func retrieveProductionFragmentListConfiguration() (data []byte, ok bool) {
 	}
 	data, err := ioutil.ReadFile(name)
 	if err != nil {
-		log.Println("Already ok")
+		dvlog.PrintlnError("Already ok")
 		return
 	}
 	ok = true
@@ -169,14 +169,14 @@ func deregisterFragment() bool {
 	}
 	microServiceName := dvparser.GlobalProperties[fragmentMicroServiceName]
 	if microServiceName == "" {
-		log.Printf("Please define %s in the properties file", fragmentMicroServiceName)
+		dvlog.PrintfError("Please define %s in the properties file", fragmentMicroServiceName)
 		return false
 	}
 	body := "{\"microserviceName\":\"" + microServiceName + "\"}"
 	res, err := dvnet.NewRequest("DELETE", url, body, headers, dvnet.AveragePersistentOptions)
 	if err != nil {
-		log.Println(string(res))
-		log.Printf("Error registering mui fragment at %s: %v", url, err)
+		dvlog.PrintlnError(string(res))
+		dvlog.PrintfError("Error registering mui fragment at %s: %v", url, err)
 		return false
 	}
 	return true
@@ -186,12 +186,12 @@ func deregisterFragment() bool {
 func getMuiUrl() string {
 	url := dvparser.GlobalProperties[MuiPlatformUrl]
 	if url == "" {
-		log.Printf("You must specify mui url as %s\n", MuiPlatformUrl)
+		dvlog.PrintfError("You must specify mui url as %s\n", MuiPlatformUrl)
 		return ""
 	}
 	muiUrl, err := dvparser.ConvertByteArrayByGlobalProperties([]byte(url), "MUI_URL")
 	if err != nil {
-		log.Printf("Make sure you specified all constants in %s file dvserver.properties: %v", url, err)
+		dvlog.PrintfError("Make sure you specified all constants in %s file dvserver.properties: %v", url, err)
 		return ""
 	}
 	return muiUrl
@@ -200,16 +200,16 @@ func getMuiUrl() string {
 func getMuiFragmentUrl(name string) string {
 	url := dvparser.GlobalProperties[MuiListUrl]
 	if url == "" {
-		log.Printf("You must specify mui url as %s\n", MuiListUrl)
+		dvlog.PrintfError("You must specify mui url as %s\n", MuiListUrl)
 		return ""
 	}
 	muiUrl, err := dvparser.ConvertByteArrayByGlobalProperties([]byte(url), "MUI_URL")
 	if err != nil {
-		log.Printf("Make sure you specified all constants in %s file dvserver.properties: %v", url, err)
+		dvlog.PrintfError("Make sure you specified all constants in %s file dvserver.properties: %v", url, err)
 		return ""
 	}
 	if name == "" {
-		log.Printf("Please define %s in the properties file", fragmentMicroServiceName)
+		dvlog.PrintfError("Please define %s in the properties file", fragmentMicroServiceName)
 		return ""
 	}
 	return strings.ReplaceAll(muiUrl, "%name", name)
@@ -233,8 +233,8 @@ func registerFragment(muiContent []byte) bool {
 	res, err := dvnet.NewRequest("POST", url, string(muiContent), headers, dvnet.AveragePersistentOptions)
 	message := string(res)
 	if err != nil || strings.Index(message, "SERVER_ERROR") > 0 {
-		log.Println(message)
-		log.Printf("Error registering mui fragment at %s: %v", url, err)
+		dvlog.PrintlnError(message)
+		dvlog.PrintfError("Error registering mui fragment at %s: %v", url, err)
 		return false
 	}
 	return true
@@ -254,14 +254,14 @@ func readCurrentFragmentListConfigurationFromCloud(names []string) (conf *Fragme
 			if strings.Index(errMessage, "404") >= 0 {
 				continue
 			}
-			log.Println(string(res))
-			log.Printf("Error registering mui fragment at %s: %v", url, errMessage)
+			dvlog.PrintlnError(string(res))
+			dvlog.PrintfError("Error registering mui fragment at %s: %v", url, errMessage)
 			return
 		}
 		fragment := &FragmentItemConfig{}
 		err = json.Unmarshal(res, fragment)
 		if err != nil {
-			log.Printf("Error in structure of mui fragment in %s ", string(res))
+			dvlog.PrintfError("Error in structure of mui fragment in %s ", string(res))
 			conf = nil
 			return
 		}

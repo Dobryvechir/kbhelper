@@ -5,6 +5,7 @@ package main
 import (
 	"encoding/json"
 	"github.com/Dobryvechir/dvserver/src/dvconfig"
+	"github.com/Dobryvechir/dvserver/src/dvlog"
 	"github.com/Dobryvechir/dvserver/src/dvmodules"
 	"github.com/Dobryvechir/dvserver/src/dvnet"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
@@ -12,7 +13,6 @@ import (
 	"github.com/Dobryvechir/dvserver/src/dvtemp"
 	"github.com/Dobryvechir/dvserver/src/dvurl"
 	"io/ioutil"
-	"log"
 	"strings"
 )
 
@@ -36,13 +36,13 @@ func isLocalDebugSource(src string) bool {
 func getDebugSource() string {
 	src := dvparser.GlobalProperties[debugSource]
 	if src == "" {
-		log.Printf("You must specify %s in properties file", debugSource)
+		dvlog.PrintfError("You must specify %s in properties file", debugSource)
 		return ""
 	}
 	if strings.Index(src, "{{{") >= 0 {
 		s, err := dvparser.ConvertByteArrayByGlobalProperties([]byte(src), debugSource)
 		if err != nil {
-			log.Println(err.Error())
+			dvlog.PrintlnError(err.Error())
 			return ""
 		}
 		src = s
@@ -52,7 +52,7 @@ func getDebugSource() string {
 		if c == '/' || c == '\\' {
 			src = src[:len(src)-1]
 			if src == "" {
-				log.Printf("Empty %s", debugSource)
+				dvlog.PrintfError("Empty %s", debugSource)
 				return ""
 			}
 		}
@@ -154,20 +154,20 @@ func getRuntimeScripts(data string) []*RefInfo {
 func makeRefInfo(name string, runtime []*RefInfo) (*dvurl.UrlPool, bool) {
 	data := strings.TrimSpace(dvparser.GlobalProperties[name])
 	if data == "" {
-		log.Printf("Please, specify rules %s ({key:value, key:value})", name)
+		dvlog.PrintfError("Please, specify rules %s ({key:value, key:value})", name)
 		return nil, false
 	}
 	if data[0] != '{' || data[len(data)-1] != '}' {
-		log.Printf("Rules %s must begin with opening curl bracket and end with closing curl bracket ({key:value, key:value})", name)
+		dvlog.PrintfError("Rules %s must begin with opening curl bracket and end with closing curl bracket ({key:value, key:value})", name)
 		return nil, false
 	}
 	info := make(map[string]string)
 	err := json.Unmarshal([]byte(data), &info)
 	if err != nil {
 		if logDebug {
-			log.Println(err.Error())
+			dvlog.PrintlnError(err.Error())
 		}
-		log.Printf("Rules %s must be a string map as follows:{\"key\":\"value\", \"key\":\"value\"}", name)
+		dvlog.PrintfError("Rules %s must be a string map as follows:{\"key\":\"value\", \"key\":\"value\"}", name)
 		return nil, false
 	}
 	res := dvurl.GetUrlHandler()
@@ -198,7 +198,7 @@ func applyRefRule(s string, rule *dvurl.UrlPool, specials map[string]string) (po
 	if n > 0 {
 		hostName := dvparser.GlobalProperties[hostNameParam]
 		if !strings.HasPrefix(hostName, "http") {
-			log.Printf("parameter %s must be specified and start with http (%s)", hostNameParam, hostName)
+			dvlog.PrintfError("parameter %s must be specified and start with http (%s)", hostNameParam, hostName)
 			return
 		}
 		c := hostName[len(hostName)-1]
@@ -253,14 +253,14 @@ func createDebugFragmentListConfig(fragmentListConfig *FragmentListConfig) (conf
 		fileName := src + "/index.html"
 		data, err := ioutil.ReadFile(fileName)
 		if err != nil {
-			log.Printf("Since %s does not start with http, it is considered as a folder, which must contain index.html, but index.html was not found", fileName)
+			dvlog.PrintfError("Since %s does not start with http, it is considered as a folder, which must contain index.html, but index.html was not found", fileName)
 			return
 		}
 		indexContent = string(data)
 	} else {
 		res, err := dvnet.NewRequest("GET", src, "", nil, dvnet.AveragePersistentOptions)
 		if err != nil {
-			log.Printf("Cannot GET %s", src)
+			dvlog.PrintfError("Cannot GET %s", src)
 			return
 		}
 		indexContent = string(res)
@@ -290,7 +290,7 @@ func createDebugFragmentListConfig(fragmentListConfig *FragmentListConfig) (conf
 func convertListConfigToJson(fragmentListConfig *FragmentListConfig) (data []byte, ok bool) {
 	data, err := json.Marshal(fragmentListConfig)
 	if err != nil {
-		log.Printf("Error converting fragment to json: %s", err.Error())
+		dvlog.PrintfError("Error converting fragment to json: %s", err.Error())
 		return
 	}
 	ok = true
@@ -382,16 +382,16 @@ func runDvServer(specials map[string]string) bool {
 		}
 		if err == nil {
 			if logDebug {
-				log.Printf("Config was written in %s", path)
+				dvlog.PrintfError("Config was written in %s", path)
 			}
 		} else {
-			log.Printf("Failed to save config for debup purposese into %s", path)
+			dvlog.PrintfError("Failed to save config for debup purposese into %s", path)
 		}
 	}
 	if logDebugFragments&128 == 0 {
 		dvconfig.ServerStartByConfig(config)
 	} else {
-		log.Printf("server has not been started for debug purpose (0x80 & 0x%x)", logDebugFragments)
+		dvlog.PrintfError("server has not been started for debug purpose (0x80 & 0x%x)", logDebugFragments)
 	}
 	return true
 }

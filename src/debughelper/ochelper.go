@@ -3,9 +3,9 @@
 package main
 
 import (
+	"github.com/Dobryvechir/dvserver/src/dvlog"
 	"github.com/Dobryvechir/dvserver/src/dvoc"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
-	"log"
 )
 
 const (
@@ -42,7 +42,7 @@ func getCurrentServiceName() (name string, ok bool) {
 	if name == "" {
 		name = dvparser.GlobalProperties[fragmentMicroServiceName]
 		if name == "" {
-			log.Printf("you must specify the fragment microservice name in %s in dvserver.properties", fragmentMicroServiceName)
+			dvlog.PrintfError("you must specify the fragment microservice name in %s in dvserver.properties", fragmentMicroServiceName)
 			return
 		}
 	}
@@ -67,7 +67,7 @@ func getMicroServiceDeleteOption() int {
 	case "2", "SAFE":
 		mode = dvoc.MicroServiceDeleteSaveAndSafeDelete
 	default:
-		log.Printf("Unknown MICROSERVICE_DELETE_MODE option (available are FORCED (0), SAVED (1), SAFE (2))")
+		dvlog.PrintfError("Unknown MICROSERVICE_DELETE_MODE option (available are FORCED (0), SAVED (1), SAFE (2))")
 	}
 	return mode
 }
