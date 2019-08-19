@@ -15,13 +15,24 @@ import (
 )
 
 type UiFragment struct {
-	FragmentName string   `json:"fragmentName"`
-	JsResources  []string `json:"jsResources"`
-	CssResources []string `json:"cssResources"`
-	Labels       []string `json:"labels"`
-	ImageUrl     string   `json:"imageUrl"`
-	//DescriptionLocalizationId string   `json:"descriptionLocalizationId"`
-	//SkipLocalization          bool     `json:"skipLocalization"`
+	FragmentName              string   `json:"fragmentName"`
+	JsResources               []string `json:"jsResources"`
+	CssResources              []string `json:"cssResources"`
+	Labels                    []string `json:"labels"`
+	ImageUrl                  string   `json:"imageUrl"`
+	DescriptionLocalizationId string   `json:"descriptionLocalizationId"`
+	SkipLocalization          bool     `json:"skipLocalization"`
+}
+
+var fragmentPartsToBeRemoved = [][]byte{
+	[]byte(",\"labels\":\"\""),
+	[]byte(",\"imageUrl\":\"\""),
+	[]byte(",\"labels\":null"),
+	[]byte(",\"imageUrl\":null"),
+	[]byte(",\"descriptionLocalizationId\":\"\""),
+	[]byte(",\"descriptionLocalizationId\":null"),
+	[]byte(",\"skipLocalization\":false"),
+	[]byte(",\"skipLocalization\":null"),
 }
 
 type FragmentListConfig struct {
@@ -202,13 +213,6 @@ func getMuiFragmentUrl(name string) string {
 		return ""
 	}
 	return strings.ReplaceAll(muiUrl, "%name", name)
-}
-
-var fragmentPartsToBeRemoved = [][]byte{
-	[]byte(",\"labels\":\"\""),
-	[]byte(",\"imageUrl\":\"\""),
-	[]byte(",\"labels\":null"),
-	[]byte(",\"imageUrl\":null"),
 }
 
 func registerFragment(muiContent []byte) bool {
