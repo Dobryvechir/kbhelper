@@ -191,8 +191,16 @@ func main() {
 		logDebug = logDebugFragments > 0
 	}
 	if logDebugFragments&2 != 0 {
-		dvnet.DvNetLog = true
-		dvoc.LogDebug = 0
+		dvnet.Log = dvnet.LogInfo
+		dvoc.Log = dvoc.LogInfo
+		if logDebugFragments&4 != 0 {
+			dvnet.Log = dvnet.LogDetail
+			dvoc.Log = dvoc.LogDetail
+		}
+		if logDebugFragments&8 != 0 {
+			dvnet.Log = dvnet.LogBigDetail
+			dvoc.Log = dvoc.LogBigDetail
+		}
 	}
 	exitCode := ErrorExitCode
 	noCache := dvparser.GlobalProperties["NO_CACHE"]
