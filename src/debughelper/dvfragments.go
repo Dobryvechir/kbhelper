@@ -42,7 +42,7 @@ type FragmentListConfig struct {
 
 type FragmentItemConfig struct {
 	Id               string     `json:"id"`
-	Version          string     `json:"version"`
+	Version          int        `json:"version"`
 	TransactionId    string     `json:"transactionId"`
 	InternalName     string     `json:"internalName"`
 	MicroServiceName string     `json:"microserviceName"`

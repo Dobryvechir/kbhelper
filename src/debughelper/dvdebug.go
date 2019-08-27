@@ -8,6 +8,7 @@ import (
 	"github.com/Dobryvechir/dvserver/src/dvlog"
 	"github.com/Dobryvechir/dvserver/src/dvmodules"
 	"github.com/Dobryvechir/dvserver/src/dvnet"
+	"github.com/Dobryvechir/dvserver/src/dvoc"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
 	"github.com/Dobryvechir/dvserver/src/dvprocessors"
 	"github.com/Dobryvechir/dvserver/src/dvtemp"
@@ -314,6 +315,21 @@ func makeLimitedWord(src string, amount int) string {
 	return string(buf)
 }
 
+func createBaseFolder(params string) (dir string, ok bool) {
+	dir = dvtemp.GetUniqueTmpFolder()
+	if dir == "" {
+		dvlog.PrintlnError("Cannot create a temporary directory for base folder")
+		return
+	}
+	err := dvoc.CopyToBaseFolder(dir, params)
+	if err != nil {
+		dvlog.PrintlnError(err.Error())
+		return
+	}
+	ok = true
+	return
+}
+
 func runDvServer(specials map[string]string) bool {
 	src := getDebugSource()
 	if src == "" {
@@ -372,6 +388,15 @@ func runDvServer(specials map[string]string) bool {
 			Params: []string{"socket(socketUrl, onSocketMessage);", "/* goodness */"}, //TODO: provide real words
 		}
 		//provided a special replacer for disabling web socket
+		//copy files to base
+		if dvparser.GlobalProperties["DVSERVER_COPY_FILES"] != "" {
+			var ok bool
+			baseFolder, ok = createBaseFolder(dvparser.GlobalProperties["DVSERVER_COPY_FILES"])
+			if !ok {
+				return false
+			}
+			config.Server.BaseFolder = baseFolder
+		}
 	}
 	//start dvserver
 	if logDebug {

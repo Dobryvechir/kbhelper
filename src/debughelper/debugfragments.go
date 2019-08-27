@@ -81,6 +81,21 @@ func startDebugFragment() int {
 	return SuccessExitCode
 }
 
+func startDebugFragmentShort() int {
+	fragmentListConfig, ok := readFragmentListConfigurationFromFile()
+	if !ok {
+		return ErrorExitCode
+	}
+	_, specials, ok := createDebugFragmentListConfig(fragmentListConfig)
+	if !ok {
+		return ErrorExitCode
+	}
+	if runDvServer(specials) {
+		dvlog.PrintlnError("Successfully started server shortly")
+	}
+	return SuccessExitCode
+}
+
 func finishDebugFragment() int {
 	fragmentListConfig, ok := readFragmentListConfigurationFromFile()
 	if !ok {
@@ -144,7 +159,7 @@ func raiseUpInCloud() int {
 		}
 		files := make(map[string]string)
 		files[htmlFolder] = distributionFolder
-		if !dvoc.CreateMicroService(params, files) {
+		if !dvoc.CreateMicroService(params, files, nil) {
 			dvlog.PrintfError("Failed to create microservice for %s (%s)", serviceName, templateImage)
 			return ErrorExitCode
 		}
@@ -210,6 +225,8 @@ func main() {
 	switch args[0] {
 	case "start":
 		exitCode = startDebugFragment()
+	case "server":
+		exitCode = startDebugFragmentShort()
 	case "finish":
 		exitCode = finishDebugFragment()
 	case "up":
