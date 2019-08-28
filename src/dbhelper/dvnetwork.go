@@ -5,8 +5,10 @@ package main
 import (
 	"fmt"
 	"github.com/Dobryvechir/dvserver/src/dvnet"
+	"github.com/Dobryvechir/dvserver/src/dvoc"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
 	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -17,11 +19,6 @@ const (
 	Authorization = "Authorization"
 	ContentType   = "Content-Type"
 )
-
-func getM2MToken(secretPath string) (string, error) {
-	m2mToken, err := ioutil.ReadFile(secretPath + "/m2mtoken")
-	return string(m2mToken), err
-}
 
 func main() {
 	args := dvparser.InitAndReadCommandLine()
@@ -51,15 +48,12 @@ func main() {
 	if l > 2 {
 		dvparser.PutDescribedAttributesToMapFromCommaSeparatedList(params, headers, args[2])
 	}
-	if headers[Authorization] == "M2M" {
-		secretPath := params["MICROSERVICE_PATH"]
-		if secretPath == "" {
-			panic("Parameter MICROSERVICE_PATH is not defined in the properties")
-		}
-		m2mToken, err := getM2MToken(secretPath)
+	if strings.HasPrefix(headers[Authorization], "M2M_") {
+		microServiceName := headers[Authorization][4:]
+		m2mToken, ok := dvoc.GetM2MToken(microServiceName)
 		headers[Authorization] = m2mToken
-		if err != nil {
-			panic("Cannot read M2M token" + err.Error())
+		if !ok {
+			panic("Error fatal: Cannot read M2M token")
 		}
 	}
 	body := ""
@@ -97,8 +91,21 @@ func main() {
 			if err != nil {
 				fmt.Printf("Error: %s", err.Error())
 			} else {
-				fmt.Printf("%s\n", addMessage)
+				fileName := properties["SAVE_RESULT"]
+				if fileName != "" {
+					err = ioutil.WriteFile(fileName, []byte(addMessage), 0644)
+					if err != nil {
+						fmt.Printf("Cannot save results to %s: %v", fileName, err)
+					} else {
+						return
+					}
+
+				} else {
+					fmt.Printf("%s\n", addMessage)
+					return
+				}
 			}
 		}
 	}
+	os.Exit(1)
 }
