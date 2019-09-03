@@ -22,13 +22,18 @@ const (
 
 func main() {
 	args := dvparser.InitAndReadCommandLine()
+	params := dvparser.GlobalProperties
 	l := len(args)
 	if l < 1 {
-		fmt.Println(copyright)
-		fmt.Println("dvnetwork <url property> <method (default - GET)> <header,,,list> <body> <addMessage> <repeats>")
+		if params["EXECUTE_NET_1"] == "" {
+			fmt.Println(copyright)
+			fmt.Println("Specify property EXECUTE_NET_1 or provide the command line parameters as follows:")
+			fmt.Println("dvnetwork <url property> <method (default - GET)> <header,,,list> <body> <addMessage> <repeats>")
+		} else {
+			dvoc.ExecuteSequence("EXECUTE_NET")
+		}
 		return
 	}
-	params := dvparser.GlobalProperties
 	url := args[0]
 	if params[url] != "" {
 		url = params[url]
