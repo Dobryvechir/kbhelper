@@ -384,8 +384,8 @@ func runDvServer(specials map[string]string) bool {
 		}
 		config.Server.PostProcessors[1] = dvprocessors.ProcessorConfig{
 			Name:   "replacer",
-			Urls:   "**/vendor.js",
-			Params: []string{"socket(socketUrl, onSocketMessage);", "/* goodness */"}, //TODO: provide real words
+			Urls:   "main.js, polyfills.js, vendor.js",
+			Params: []string{".call(this, \"?http://localhost\"))", ".bind(this));/* goodness */", ".call(this, \"?http://0.0.0.0:0\"))", ".bind(this));/* mercy */"},
 		}
 		//provided a special replacer for disabling web socket
 		//copy files to base
