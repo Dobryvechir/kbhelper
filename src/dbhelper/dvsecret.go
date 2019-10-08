@@ -30,7 +30,7 @@ func main() {
 	l := len(args)
 	if l >= 1 && (args[0] == "--help" || args[0] == "version" || args[0] == "-version" || args[0] == "--version") {
 		fmt.Println(help)
-		fmt.Println("SECRET_PATH defaults to [%s]", folder)
+		fmt.Printf("SECRET_PATH defaults to [%s]", folder)
 		os.Exit(1)
 		return
 	}
