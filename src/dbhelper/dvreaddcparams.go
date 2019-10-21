@@ -25,7 +25,7 @@ const (
 	paramsMapFile             = "paramsMap.properties"
 	paramsSetCmd              = "launchRun.cmd"
 	templatePropertiesFile    = "template.properties"
-	templateEnvPath           = "objects[0].spec.template.spec.containers[0].env"
+	templateEnvPath           = "objects.find({\"kind\":\"DeploymentConfig\"}).spec.template.spec.containers[0].env"
 	serviceUpFile             = "serviceUp.cmd"
 	serviceUpFileContent      = "@oc new-app -f dvtemplate.json\n"
 	serviceDownFile           = "serviceDown.cmd"
@@ -45,6 +45,7 @@ type ocTemplateParameter struct {
 type OcTemplateProcessingContext struct {
 	FieldByObjectType map[string]*dvjson.DvFieldInfo
 	MicroServiceName  string
+	ObjectNameByType  map[string]string
 }
 
 func writeFile(fileName string, data string) {
@@ -213,9 +214,9 @@ func main() {
 	}
 	if l > 0 {
 		microServiceName = args[0]
-		isPresent:=false
+		isPresent := false
 		if strings.Contains(microServiceName, ":") || strings.Contains(microServiceName, "/") || strings.Contains(microServiceName, "\\") {
-			if l!=1 {
+			if l != 1 {
 				fmt.Printf("Bad microservice name: %s", microServiceName)
 				os.Exit(1)
 			}
@@ -223,7 +224,7 @@ func main() {
 			isPresent, err = dvoc.IsMicroServicePresent(microServiceName)
 		}
 		if l == 1 {
-			if  !isPresent {
+			if !isPresent {
 				data, err = ioutil.ReadFile(args[1])
 				if err != nil || len(data) == 0 {
 					fmt.Printf("%s is neither microservice name nor template file name")
@@ -271,6 +272,29 @@ func main() {
 	}
 }
 
+func setObjectNameByType(context *OcTemplateProcessingContext, kind string, name string, env map[string]*ocTemplateParameter) {
+	if strings.Index(name, "${") >= 0 {
+		var rest []string
+		name, rest = dvparser.UpdateModelByParamGetter(name, func(key string) (string, bool) {
+			value, ok := env[key]
+			if ok && (value.provided || (value.value != "" && strings.Index(value.value, "${") < 0)) {
+				return value.value, true
+			}
+			return "", false
+		})
+		if len(rest) == 1 && rest[0] == "OPENSHIFT_SERVICE_NAME" {
+			if objectName, ok := dvoc.ResolveMostSimilarObjectByMicroserviceNameAndObjectType(context.MicroServiceName, kind); ok {
+				rest = nil
+				name = objectName
+			}
+		}
+		if len(rest) > 0 {
+			return
+		}
+	}
+	context.ObjectNameByType[kind] = name
+}
+
 func readExtraPodFile() []string {
 	fileName := dvparser.GlobalProperties["EXTRA_POD_PROPERTIES_FILE"]
 	if fileName == "" {
@@ -309,15 +333,19 @@ func presentMicroServiceInfo(microServiceName string) (map[string]string, *dvjso
 
 func createSimpleMapFromOcTemplateParameters(ocMap map[string]*ocTemplateParameter) map[string]string {
 	res := make(map[string]string)
-	list:=""
+	list := ""
 	for k, v := range ocMap {
+		val := v.value
 		if !v.provided {
-			list+=" " + k
+			list += " " + k
+			if val == "" && strings.HasPrefix(k, "ENV_") && ocMap[k[4:]] != nil && ocMap[k[4:]].provided {
+				val = ocMap[k[4:]].value
+			}
 		}
-		res[k] = v.value
+		res[k] = val
 	}
-	if list!="" {
-		fmt.Printf("Not provided parameters: %s", list)
+	if list != "" {
+		fmt.Printf("Not provided parameters: %s\n", list)
 	}
 	return res
 }
@@ -325,10 +353,11 @@ func createSimpleMapFromOcTemplateParameters(ocMap map[string]*ocTemplateParamet
 func smartDiscoveryOfOpenShiftParameters(microServiceName string, envMap map[string]string, template *dvjson.DvFieldInfo, dc *dvjson.DvFieldInfo) error {
 	fieldByObjectType := make(map[string]*dvjson.DvFieldInfo)
 	fieldByObjectType["DeploymentConfig"] = dc
-	context := &OcTemplateProcessingContext{FieldByObjectType: fieldByObjectType, MicroServiceName: microServiceName}
+	context := &OcTemplateProcessingContext{FieldByObjectType: fieldByObjectType, MicroServiceName: microServiceName, ObjectNameByType: make(map[string]string)}
 	ocMap, err := collectAllTemplateParameters(template, envMap, context)
 	if err != nil {
-		fmt.Printf("error: %v", err)
+		fmt.Printf("error: %v\n", err)
+		commonReadDcOk = false
 		return err
 	}
 	paramMap := createSimpleMapFromOcTemplateParameters(ocMap)
@@ -358,12 +387,20 @@ func addVariableParams(res map[string]*ocTemplateParameter, params map[string]st
 }
 
 func setVariablesBy(model string, pattern string, res map[string]*ocTemplateParameter) {
-	if params, doubt, ok := dvparser.SubstitutionMatchModelByPattern(model, pattern); ok {
+	hintOccurrence, hintStrict := getHintForPattern(pattern)
+	if params, doubt, ok := dvparser.SubstitutionMatchModelByPattern(model, pattern, hintOccurrence, hintStrict); ok {
 		if doubt {
 			fmt.Printf("Dubious match in %s by %s", model, pattern)
 		}
 		addVariableParams(res, params)
 	}
+}
+
+func getHintForPattern(pattern string) (int, bool) {
+	if strings.HasSuffix(pattern, "${TAG}") {
+		return -1, true
+	}
+	return 0, false
 }
 
 func collectAllTemplateParameters(template *dvjson.DvFieldInfo, envMap map[string]string, context *OcTemplateProcessingContext) (res map[string]*ocTemplateParameter, err error) {
@@ -405,7 +442,7 @@ func collectAllTemplateParameters(template *dvjson.DvFieldInfo, envMap map[strin
 			if list, rest, ok := dvparser.SubstitutionGetList(k.Value); ok {
 				found := ""
 				for lk, liveValue := range envMap {
-					params, doubt, ok := dvparser.MatchParametersByVariableSubstitution(lk, list, rest)
+					params, doubt, ok := dvparser.MatchParametersByVariableSubstitution(lk, list, rest, 0, false)
 					if ok {
 						if doubt {
 							fmt.Printf("Not unique between %s and %s", lk, key)
@@ -430,32 +467,37 @@ func collectAllTemplateParameters(template *dvjson.DvFieldInfo, envMap map[strin
 		err = errors.New("objects is not present in the template")
 		return
 	}
+	objects.Fields, _ = dvoc.OrderTemplateObjectsByDependencies(objects.Fields, true)
 	n = len(objects.Fields)
 	for i := 0; i < n; i++ {
 		item := objects.Fields[i]
 		if item == nil {
 			continue
 		}
-		kind := item.ReadSimpleChild("kind")
-		if kind == nil || len(kind.Value) == 0 {
+		kind := strings.ToLower(item.ReadSimpleChildValue("kind"))
+		if kind == "" {
 			err = fmt.Errorf("objects at %d does not contain kind", i)
 			continue
 		}
-		kindName := string(kind.Value)
-		provideObjectParameters(item, kindName, "", res, context)
+		name := item.ReadChildStringValue("metadata.name")
+		if name != "" {
+			setObjectNameByType(context, kind, name, res)
+		}
+		provideObjectParameters(item, kind, "", res, context)
 	}
 	return
 }
 
-func isListAlreadyProvided(list []string, res map[string]*ocTemplateParameter) bool {
+func listAlreadyProvided(list []string, rest []string, res map[string]*ocTemplateParameter) ([]string, []string) {
 	n := len(list)
 	for i := 0; i < n; i++ {
 		k := list[i]
-		if res[k] == nil || !res[k].provided {
-			return false
+		if res[k] != nil && res[k].provided {
+			list, rest, i = dvparser.ReduceListRestByKnownValueAtIndex(list, rest, i, res[k].value)
+			n = len(list)
 		}
 	}
-	return true
+	return list, rest
 }
 
 func provideObjectParameters(item *dvjson.DvFieldInfo, objectType string, path string, res map[string]*ocTemplateParameter, context *OcTemplateProcessingContext) {
@@ -473,25 +515,42 @@ func provideObjectParameters(item *dvjson.DvFieldInfo, objectType string, path s
 			if item.Kind == dvjson.FIELD_ARRAY {
 				pathMore = "[" + strconv.Itoa(i) + "]"
 			} else {
-				pathMore = "." + string(item.Fields[i].Name)
+				pathMore = dvjson.GetNextPathPartByKey(string(item.Fields[i].Name))
 			}
 			provideObjectParameters(item.Fields[i], objectType, path+pathMore, res, context)
 		}
 		return
 	}
 	list, rest, need := dvparser.SubstitutionGetList(item.Value)
-	if !need || isListAlreadyProvided(list, res) {
+	if !need {
+		return
+	}
+	list, rest = listAlreadyProvided(list, rest, res)
+	if len(list) == 0 {
 		return
 	}
 	model, err := getLiveSimpleValueByObjectType(objectType, path, context)
 	if err != nil {
-		fmt.Printf("Error occurred: %v", err)
+		fmt.Printf("Missing values for %v  (%v)\n", list, err)
+		for _, v := range list {
+			if _, ok := res[v]; !ok {
+				res[v] = &ocTemplateParameter{value: ""}
+			}
+		}
 	} else {
-		if params, doubt, ok := dvparser.MatchParametersByVariableSubstitution(model, list, rest); ok {
+		hintOccurrence, hintStrict := getHintForPattern(string(item.Value))
+		if params, doubt, ok := dvparser.MatchParametersByVariableSubstitution(model, list, rest, hintOccurrence, hintStrict); ok {
 			if doubt {
-				fmt.Printf("Dubious match in %s by %s", model, string(item.Value))
+				fmt.Printf("Dubious match in %s by %s\n", model, string(item.Value))
 			}
 			addVariableParams(res, params)
+		} else {
+			fmt.Printf("Missing values for %v (%s, %v)\n", list, model, rest)
+			for _, v := range list {
+				if _, ok := res[v]; !ok {
+					res[v] = &ocTemplateParameter{value: ""}
+				}
+			}
 		}
 	}
 }
@@ -499,7 +558,12 @@ func provideObjectParameters(item *dvjson.DvFieldInfo, objectType string, path s
 func getLiveSimpleValueByObjectType(objectType string, path string, context *OcTemplateProcessingContext) (model string, err error) {
 	fieldInfo, ok := context.FieldByObjectType[objectType]
 	if !ok {
-		fieldInfo, err = dvoc.GetConfigurationByOpenShiftObjectType(context.MicroServiceName, objectType)
+		objectName, ok := context.ObjectNameByType[objectType]
+		if ok {
+			fieldInfo, err = dvoc.GetConfigurationByOpenShiftObjectTypeAndName(objectName, objectType)
+		} else {
+			fieldInfo, err = dvoc.GetConfigurationByOpenShiftObjectType(context.MicroServiceName, objectType)
+		}
 		if err != nil {
 			return
 		}
@@ -509,33 +573,33 @@ func getLiveSimpleValueByObjectType(objectType string, path string, context *OcT
 	if err != nil {
 		return
 	}
-	model = value.GetStringValue()
+	model = dvparser.GetUnquotedString(value.GetStringValue())
 	return
 }
 
 func getMicroServiceDownInfo(context *OcTemplateProcessingContext, template *dvjson.DvFieldInfo, paramMap map[string]string) string {
 	list := ""
-	objects:=template.ReadSimpleChild("objects")
-	if objects!=nil {
-		n:=len(objects.Fields)
-		for i:=0;i<n;i++ {
-			o:=objects.Fields[i]
-			kind:=o.ReadSimpleChildValue("kind")
-			name:=o.ReadChildStringValue("metadata.name")
-			objType, err:=dvoc.GetShortOpenShiftNameForObjectType(kind)
-			if err!=nil {
+	objects := template.ReadSimpleChild("objects")
+	if objects != nil {
+		n := len(objects.Fields)
+		for i := 0; i < n; i++ {
+			o := objects.Fields[i]
+			kind := o.ReadSimpleChildValue("kind")
+			name := o.ReadChildStringValue("metadata.name")
+			objType, err := dvoc.GetShortOpenShiftNameForObjectType(kind)
+			if err != nil {
 				fmt.Printf("delete %s problem: %v", kind, err)
 			} else {
-				if name=="" {
+				if name == "" {
 					fmt.Printf("delete problem: cannot detect name for %s", kind)
 				} else {
-					finalName, err:=dvparser.UpdateModelByParams(name, paramMap)
-					if err!=nil {
+					finalName, err := dvparser.UpdateModelByParams(name, paramMap)
+					if err != nil {
 						fmt.Printf("delete problem: %v", err)
-					} else if finalName=="" {
+					} else if finalName == "" {
 						fmt.Printf("delete problem: cannot detect the name for %s", kind)
 					} else {
-						list+="delete "+objType+" "+finalName+"\n"
+						list += "delete " + objType + " " + finalName + "\n"
 					}
 				}
 			}
