@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
 	"io/ioutil"
+	"os"
 	"strconv"
 )
 
@@ -52,7 +53,9 @@ func presentError(inp []byte, pos int, mes string) {
 		}
 	}
 	fmt.Printf("Error - %s at line %d column %d ", mes, line, column)
-	panic("Fix your template!")
+	fmt.Println("Fix your template!")
+	//panic("Bye")
+	os.Exit(1)
 }
 
 func replaceVariableByMap(inp []byte, outp []byte, params map[string]string, pos int, n int) ([]byte, int) {
@@ -337,12 +340,22 @@ func processOpenshiftTemplate(inp []byte, params map[string]string, isDebug bool
 func readTemplate(name string) map[string]string {
 	err := dvparser.ReadPropertiesFileWithEnvironmentVariablesInCurrentDirectory(name)
 	if err != nil {
-		panic(err.Error())
+		fmt.Printf("Error %v", err)
+		os.Exit(1)
 	}
 	return dvparser.GlobalProperties
 }
 
+const (
+	templateProperties = "template.properties"
+)
+
 func main() {
+	if _, err := os.Stat(templateProperties); err == nil {
+		dvparser.DvServerPropertiesInCurrentFolderFileName = templateProperties
+	} else {
+		fmt.Printf("No template.properties: %v\n", err)
+	}
 	args := dvparser.InitAndReadCommandLine()
 	l := len(args)
 	if l < 2 {
@@ -361,13 +374,14 @@ func main() {
 		} else if options == "noparameters" {
 			noParameters = true
 		} else {
-			panic("You specified options = " + options + " but only debug or noparameters options are accepted")
+			fmt.Println("You specified options = " + options + " but only debug or noparameters options are accepted")
+			os.Exit(1)
 		}
 	}
 	data, e := ioutil.ReadFile(templateInput)
 	if e != nil {
 		fmt.Printf("Cannot read file %s: %s\n", templateInput, e.Error())
-		panic("Fatal error")
+		os.Exit(1)
 	}
 	params := dvparser.GlobalProperties
 	var res []byte
@@ -379,7 +393,7 @@ func main() {
 	e = ioutil.WriteFile(templateOutput, res, 0664)
 	if e != nil {
 		fmt.Printf("Cannot write file %s: %s\n", templateOutput, e.Error())
-		panic("Fatal error")
+		os.Exit(1)
 	}
 	fmt.Printf("Ready template written in %s \n", templateOutput)
 }

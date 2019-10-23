@@ -599,7 +599,7 @@ func getMicroServiceDownInfo(context *OcTemplateProcessingContext, template *dvj
 					} else if finalName == "" {
 						fmt.Printf("delete problem: cannot detect the name for %s", kind)
 					} else {
-						list += "delete " + objType + " " + finalName + "\n"
+						list += "@oc delete " + objType + " " + finalName + "\n"
 					}
 				}
 			}
