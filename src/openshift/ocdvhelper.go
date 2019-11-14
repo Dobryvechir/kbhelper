@@ -4,10 +4,13 @@ package main
 
 import (
 	"fmt"
+	"github.com/Dobryvechir/dvserver/src/dvjson"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
+	"github.com/Dobryvechir/dvserver/src/dvtemp"
 	"io/ioutil"
 	"os"
 	"strconv"
+	"strings"
 )
 
 var copyright = "Copyright by Volodymyr Dobryvechir 2019"
@@ -34,6 +37,12 @@ const (
 	S_VALUE_OF_NAME
 	S_VALUE_OF_OTHER
 	S_PARAMS_END_OR_COMMA
+)
+
+const (
+	MODE_COMPLEX = iota
+	MODE_SIMPLE
+	MODE_NOPARAMETERS
 )
 
 func isWordLetter(c byte) bool {
@@ -360,20 +369,26 @@ func main() {
 	l := len(args)
 	if l < 2 {
 		fmt.Println(copyright)
-		fmt.Println("ocdvhelper <openshift template input> <openshift template output> <optional: debug | noparameters>")
+		fmt.Println("ocdvhelper <openshift template input> <openshift template output> <optional: debug | noparameters | simple | complex>")
 		return
 	}
 	templateInput := args[0]
 	templateOutput := args[1]
 	isDebug := false
-	noParameters := false
+	processMode := MODE_COMPLEX
 	if l > 2 {
 		options := args[2]
-		if options == "debug" {
+		switch options {
+		case "debug":
 			isDebug = true
-		} else if options == "noparameters" {
-			noParameters = true
-		} else {
+			processMode = MODE_SIMPLE
+		case "noparameters":
+			processMode = MODE_NOPARAMETERS
+		case "simple":
+			processMode = MODE_SIMPLE
+		case "complex":
+			processMode = MODE_COMPLEX
+		default:
 			fmt.Println("You specified options = " + options + " but only debug or noparameters options are accepted")
 			os.Exit(1)
 		}
@@ -385,10 +400,17 @@ func main() {
 	}
 	params := dvparser.GlobalProperties
 	var res []byte
-	if noParameters {
-		res = processOpenshiftSimplePart(data, nil, params, 0, nil)
-	} else {
+	switch processMode {
+	case MODE_COMPLEX:
+		mapInfo := dvparser.CopyStringMap(params)
+		res = processOpenshiftTemplate(data, mapInfo, isDebug)
+		res = processOpenshiftSimplePart(res, nil, params, 0, nil)
+		folder := createUniqueFolderByName(templateOutput)
+		produceYamlFilesForObjects(res, folder)
+	case MODE_SIMPLE:
 		res = processOpenshiftTemplate(data, params, isDebug)
+	case MODE_NOPARAMETERS:
+		res = processOpenshiftSimplePart(data, nil, params, 0, nil)
 	}
 	e = ioutil.WriteFile(templateOutput, res, 0664)
 	if e != nil {
@@ -396,4 +418,54 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Printf("Ready template written in %s \n", templateOutput)
+}
+
+func createUniqueFolderByName(template string) string {
+	p := strings.LastIndex(template, ".")
+	if p < 0 {
+		template += "_create"
+	} else {
+		template = template[:p] + "_create"
+	}
+	if err := dvtemp.CreateOrCleanDir(template, 0755); err != nil {
+		fmt.Printf("Failed to create dir %s: %v", template, err)
+		return ""
+	}
+	return template + "/"
+}
+
+func produceYamlFilesForObjects(d []byte, folder string) {
+	if folder == "" {
+		return
+	}
+	res, err := dvjson.JsonFullParser(d)
+	if err != nil {
+		fmt.Printf("Failed to parse json %v", err)
+		return
+	}
+	res = res.ReadSimpleChild("objects")
+	if res == nil {
+		fmt.Println("No objects field inside template")
+		return
+	}
+	n := len(res.Fields)
+	s := ""
+	for i := 0; i < n; i++ {
+		p := res.Fields[i]
+		if p == nil {
+			continue
+		}
+		kind := p.ReadSimpleChildValue("kind")
+		fileName := dvtemp.GetUniqueFileName(folder, kind, ".yaml")
+		s += "oc create -f " + fileName + "\n"
+		data := p.PrintToYaml(4)
+		err = ioutil.WriteFile(fileName, data, 0644)
+		if err != nil {
+			fmt.Printf("Failed to save to %s: %v", fileName, err)
+		}
+	}
+	err = ioutil.WriteFile(folder+"servicesUp.cmd", []byte(s), 0644)
+	if err != nil {
+		fmt.Printf("Cannot save serverUp.cmd file: %v", err)
+	}
 }

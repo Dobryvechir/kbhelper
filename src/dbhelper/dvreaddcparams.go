@@ -223,7 +223,7 @@ func main() {
 		} else {
 			isPresent, err = dvoc.IsMicroServicePresent(microServiceName)
 		}
-		if l == 1 {
+		if l > 1 {
 			if !isPresent {
 				data, err = ioutil.ReadFile(args[1])
 				if err != nil || len(data) == 0 {
