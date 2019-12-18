@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 )
 
 func convertToGzip(data []byte, base64Option bool) ([]byte, error) {
@@ -47,30 +50,58 @@ func convertFromGzip(data []byte, base64Option bool) (res []byte, err error) {
 func main() {
 	n := len(os.Args)
 	if n < 3 {
-		fmt.Println("gziptotext [g - to gzip |t -to text |gb  - to gzip + base64 | tb- to text from gzip+base64] <fileName> <optional output fileName>")
+		fmt.Println("gziptotext [g - to gzip |t -to text |gb  - to gzip + base64 | tb- to text from gzip+base64] <fileName or wildcard> <optional output fileName>")
 		return
 	}
 	options := os.Args[1]
 	file := os.Args[2]
+	output := ""
+	if n > 3 {
+		output = os.Args[3]
+	}
+	if strings.Index(file, "*") >= 0 || strings.Index(file, "?") >= 0 || strings.Index(file, "[") >= 0 {
+		matches, err := filepath.Glob(file)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		n := len(matches)
+		if n == 0 {
+			fmt.Println("no file matches your pattern")
+		} else {
+			for i := 0; i < n; i++ {
+				outputReal := output
+				if outputReal != "" && i > 0 {
+					outputReal = outputReal + strconv.Itoa(i)
+				}
+				convertGzipToFrom(options, matches[i], outputReal)
+			}
+		}
+	} else {
+		convertGzipToFrom(options, file, output)
+	}
+
+}
+func convertGzipToFrom(options string, file string, output string) {
+
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
 		fmt.Printf("Error reading %s: %v", file, err)
 		return
 	}
 	gzip := options[0] == 'g'
-	var output, ext string
+	var ext string
 	if gzip {
 		ext = ".zip"
 	} else {
 		if options[0] != 't' {
 			fmt.Printf("Not valid option: %s (valid options are g, t, gb, tb)", options)
+			os.Exit(1)
 			return
 		}
 		ext = ".txt"
 	}
-	if n > 3 {
-		output = os.Args[3]
-	} else {
+	if output == "" {
 		output = file + ext
 	}
 	base64Option := false
@@ -79,6 +110,7 @@ func main() {
 			base64Option = true
 		} else {
 			fmt.Printf("Not valid options: %s (valid options are g, t, gb, tb)", options)
+			os.Exit(1)
 			return
 		}
 	}
