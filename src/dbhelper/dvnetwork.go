@@ -53,14 +53,6 @@ func main() {
 	if l > 2 {
 		dvparser.PutDescribedAttributesToMapFromCommaSeparatedList(params, headers, args[2])
 	}
-	if strings.HasPrefix(headers[Authorization], "M2M_") {
-		microServiceName := headers[Authorization][4:]
-		m2mToken, ok := dvoc.GetM2MToken(microServiceName)
-		headers[Authorization] = m2mToken
-		if !ok {
-			panic("Error fatal: Cannot read M2M token")
-		}
-	}
 	body := ""
 	if l > 3 {
 		body = args[3]
@@ -82,6 +74,10 @@ func main() {
 	}
 	options := map[string]interface{}{
 		"repeats": repeats,
+	}
+	if strings.HasPrefix(headers[Authorization], "M2M_") {
+		microServiceName := headers[Authorization][4:]
+		options[dvoc.M2MAuthorizationRequest] = microServiceName
 	}
 	data, err := dvnet.NewRequest(method, url, body, headers, options)
 	if err != nil {
