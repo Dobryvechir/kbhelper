@@ -15,7 +15,7 @@ function processJoining($name, $collector, $m) {
    if (FALSE===$fh) {
         exit('Failed to create '.$name);
    }
-   $blockSize = 10;
+   $blockSize = 65536;
    for($i=0;$i<$m;$i++) {
        $teil = $collector[$i];
        $teilLen = filesize($teil);
@@ -30,7 +30,7 @@ function processJoining($name, $collector, $m) {
            }
            $dat = fread($fr,$currentSize);
            fwrite($fh, $dat);
-           echo 'written block of '.strlen($dat).' bytes ';
+           echo '+'.strlen($dat).' ';
            $teilLen -= $currentSize;
        }
        fclose($fr);
