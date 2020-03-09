@@ -9,19 +9,29 @@ import (
 	"github.com/Dobryvechir/dvserver/src/dvparser"
 	"io/ioutil"
 	"strconv"
+	"strings"
 )
 
 var copyright = "Copyright by Volodymyr Dobryvechir 2019"
 
 type ChangeVersionItem struct {
-	Line   int    `json:"line"`
-	Column int    `json:"column"`
-	Match  string `json:"match"`
+	Line       int    `json:"line"`
+	Column     int    `json:"column"`
+	Match      string `json:"match"`
+	BeforePut  string `json:"beforePut"`
+	AfterPut   string `json:"afterPut"`
+	Src        string `json:"src"`
+	BeforeTake string `json:"beforeTake"`
+	AfterTake  string `json:"afterTake"`
+	// Options can contain V for Version or C for content (or both), if empty, V is assumed
+	Options string `json:"options"`
 }
+
 type ChangeVersionBlock struct {
 	Source string              `json:"source"`
 	Items  []ChangeVersionItem `json:"items"`
 }
+
 type ChangeVersionConfig struct {
 	Places []ChangeVersionBlock `json:"places"`
 	Format string               `json:"format"`
@@ -31,78 +41,139 @@ func findItem(data []byte, item *ChangeVersionItem, src string) (int, error) {
 	if item.Match == "" {
 		return 0, errors.New("Empty match is not supported yet")
 	}
-	needle := []byte(item.Match)
-	needleLen := len(needle)
-	n := len(data) - needleLen
-	c := needle[0]
-bigLoop:
-	for i := 0; i < n; i++ {
-		if data[i] == c {
-			for j := 1; j < needleLen; j++ {
-				if data[i+j] != needle[j] {
-					continue bigLoop
-				}
-			}
-			i += needleLen
-			n = len(data)
-			for i < n && data[i] <= 32 {
-				i++
-			}
-			if i == n {
-				return 0, errors.New("No version after match for " + item.Match + " in " + src)
-			}
-			return i, nil
+	_, pos := dvparser.FindSubStringSmartInByteArray(data, []byte(item.Match))
+	if pos >= 0 {
+		n := len(data)
+		for pos < n && data[pos] <= 32 {
+			pos++
 		}
+		if pos == n {
+			return 0, errors.New("No version after match for " + item.Match + " in " + src)
+		}
+		return pos, nil
 	}
 	return 0, errors.New("No match for " + item.Match + " in " + src)
+}
 
+func takeExtractFromSource(src string, before string, after string) ([]byte, error) {
+	if src == "" {
+		return nil, errors.New("File src not specified for " + before + " ... " + after)
+	}
+	data, err := ioutil.ReadFile(src)
+	if err != nil {
+		return nil, err
+	}
+	res, stat := dvparser.ExtractFromBufByBeforeAfterKeys(data, []byte(before), []byte(after))
+	if stat != 0 {
+		if stat == -1 {
+			return nil, errors.New("Not found " + before + " in " + src)
+		}
+		return nil, errors.New("Not found " + after + " in " + src)
+	}
+	return res, nil
 }
 
 func processChangeByItem(data []byte, item *ChangeVersionItem, version []byte, newVersion []byte, src string) ([]byte, error) {
+	isVersion := item.Options == "" || strings.Contains(item.Options, "V")
+	isContent := strings.Contains(item.Options, "C")
+	if !isVersion && !isContent {
+		return nil, errors.New("item options must have either V for version or C for content")
+	}
 	pos, err := findItem(data, item, src)
-	if err != nil {
+	if isVersion && err != nil {
 		return data, err
 	}
 	n := len(data)
-	vlen := len(version)
-	nlen := len(newVersion)
-	if pos+vlen > n {
-		return data, errors.New("no value found for " + item.Match + " in " + src)
-	}
-	for i := 0; i < vlen; i++ {
-		if data[pos+i] != version[i] {
-			return data, errors.New("no value " + string(version) + " goes after " + item.Match + " in " + src)
+	if isVersion {
+		vlen := len(version)
+		nlen := len(newVersion)
+		if pos+vlen > n {
+			return data, errors.New("no value found for " + item.Match + " in " + src)
 		}
-		if nlen <= vlen {
-			data[pos+i] = newVersion[i]
-		}
-	}
-	if vlen != nlen {
-		if vlen > nlen {
-			pos += nlen
-			dif := vlen - nlen
-			for ; pos+dif < n; pos++ {
-				data[pos] = data[pos+dif]
+		for i := 0; i < vlen; i++ {
+			if data[pos+i] != version[i] {
+				return data, errors.New("no value " + string(version) + " goes after " + item.Match + " in " + src)
 			}
-			data = data[:n-dif]
-		} else {
-			rest := data[pos+vlen:]
-			data = append(data[:pos:pos], newVersion...)
-			data = append(data, rest...)
+			if nlen <= vlen {
+				data[pos+i] = newVersion[i]
+			}
 		}
+		if vlen != nlen {
+			if vlen > nlen {
+				pos += nlen
+				dif := vlen - nlen
+				n -= dif
+				for i := pos; i < n; i++ {
+					data[i] = data[i+dif]
+				}
+				data = data[:n]
+			} else {
+				rest := data[pos+vlen:]
+				data = append(data[:pos:pos], newVersion...)
+				data = append(data, rest...)
+				pos += vlen
+				n = len(data)
+			}
+		} else {
+			pos += nlen
+		}
+	} else {
+		pos = 0
+	}
+	if isContent {
+		dat, err := takeExtractFromSource(item.Src, item.BeforeTake, item.AfterTake)
+		if err != nil {
+			return nil, err
+		}
+		_, posStart := dvparser.FindSubStringSmartInByteArray(data[pos:], []byte(item.BeforePut))
+		if posStart < 0 {
+			return nil, errors.New("Not found: " + item.BeforePut)
+		}
+		posStart += pos
+		posEnd, _ := dvparser.FindSubStringSmartInByteArray(data[posStart:], []byte(item.AfterPut))
+		if posEnd < 0 {
+			return nil, errors.New("Not found: " + item.AfterPut)
+		}
+		data = dvparser.ReplaceTextInsideByteArray(data, posStart, posEnd + posStart, dat)
 	}
 	return data, nil
 }
 
+func findFirstItemWithVersion(items []ChangeVersionItem) int {
+	n := len(items)
+	for i := 0; i < n; i++ {
+		if items[i].Options == "" || strings.Contains(items[i].Options, "V") {
+			return i
+		}
+	}
+	return -1
+}
+
 func readConfigVersion(config *ChangeVersionConfig) (string, error) {
-	if len(config.Places) == 0 || config.Places[0].Source == "" || len(config.Places[0].Items) == 0 {
+	placeSize := len(config.Places)
+	if placeSize == 0 {
 		return "", errors.New("no places specified")
 	}
-	data, err := ioutil.ReadFile(config.Places[0].Source)
+	place := 0
+	itemNr := -1
+	for place < placeSize {
+		itemNr = findFirstItemWithVersion(config.Places[place].Items)
+		if itemNr >= 0 {
+			break
+		}
+		place++
+	}
+	if place >= placeSize {
+		return "0", nil
+	}
+	if config.Places[place].Source == "" {
+		return "", errors.New("no source specified")
+	}
+	data, err := ioutil.ReadFile(config.Places[place].Source)
 	if err != nil {
 		return "", err
 	}
-	pos, err1 := findItem(data, &config.Places[0].Items[0], config.Places[0].Source)
+	pos, err1 := findItem(data, &config.Places[place].Items[itemNr], config.Places[place].Source)
 	if err1 != nil {
 		return "", err1
 	}
@@ -112,7 +183,7 @@ func readConfigVersion(config *ChangeVersionConfig) (string, error) {
 		npos++
 	}
 	if pos == npos {
-		return "", errors.New("no version in first place in " + config.Places[0].Source)
+		return "", errors.New("no version in first version place in " + config.Places[place].Source)
 	}
 	return string(data[pos:npos]), nil
 }
