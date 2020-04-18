@@ -1,4 +1,4 @@
-// Copyright by Volodymyr Dobryvechir 2019 (dobrivecher@yahoo.com, vdobryvechir@gmail.com)
+// Copyright by Danyil Dobryvechir 2019 (dobrivecher@yahoo.com, ddobryvechir@gmail.com)
 
 package main
 
@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-var copyrightDvReadDcParams = "Copyright by Volodymyr Dobryvechir 2019"
+var copyrightDvReadDcParams = "Copyright by Danyil Dobryvechir 2019"
 
 var helpDvReadDcParams = copyrightDvReadDcParams + "\ndvreaddcparams <microservice name> [<original template>]"
 

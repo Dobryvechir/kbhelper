@@ -1,4 +1,4 @@
-// Copyright by Volodymyr Dobryvechir 2019 (dobrivecher@yahoo.com, vdobryvechir@gmail.com)
+// Copyright by Danyil Dobryvechir 2019 (dobrivecher@yahoo.com, ddobryvechir@gmail.com)
 
 package main
 
@@ -18,7 +18,7 @@ type ByteCodeItem struct {
 	description string
 }
 
-var copyright = "Copyright by Volodymyr Dobryvechir 2019"
+var copyright = "Copyright by Danyil Dobryvechir 2019"
 
 var byteCodeTable = []ByteCodeItem{
 	ByteCodeItem{"code": 0x32, "operation": "aaload", "description": "arrayref, index → value load onto the stack a reference from an array"},

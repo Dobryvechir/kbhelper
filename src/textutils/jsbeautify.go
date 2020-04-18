@@ -1,4 +1,4 @@
-// Copyright by Volodymyr Dobryvechir 2019 (dobrivecher@yahoo.com, vdobryvechir@gmail.com)
+// Copyright by Danyil Dobryvechir 2019 (dobrivecher@yahoo.com, ddobryvechir@gmail.com)
 
 package main
 
@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-var copyright = "Copyright by Volodymyr Dobryvechir 2019"
+var copyright = "Copyright by Danyil Dobryvechir 2019"
 
 func findEndOfComment(buf []byte, pos int, kind byte) int {
 	n := len(buf)

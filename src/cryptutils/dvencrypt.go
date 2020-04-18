@@ -1,6 +1,6 @@
 /***********************************************************************
 DvServer
-Copyright 2018 - 2020 by Volodymyr Dobryvechir (dobrivecher@yahoo.com vdobryvechir@gmail.com)
+Copyright 2018 - 2020 by Danyil Dobryvechir (dobrivecher@yahoo.com ddobryvechir@gmail.com)
 ************************************************************************/
 
 package main
@@ -12,7 +12,7 @@ import (
 	"io/ioutil"
 )
 
-var copyright = "Copyright by Volodymyr Dobryvechir 2019"
+var copyright = "Copyright by Danyil Dobryvechir 2019"
 
 func encrypt(src string, key string, dst string) error {
 	data, err := ioutil.ReadFile(src)

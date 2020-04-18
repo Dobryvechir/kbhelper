@@ -1,4 +1,4 @@
-// Copyright by Volodymyr Dobryvechir 2019 (dobrivecher@yahoo.com, vdobryvechir@gmail.com)
+// Copyright by Danyil Dobryvechir 2019 (dobrivecher@yahoo.com, ddobryvechir@gmail.com)
 /*********************************************************************
 literal \ must be escaped as \\
 literal / must be escaped as \057 (=0x2f)
@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	copyright = "Copyright by Volodymyr Dobryvechir 2019 Christmas"
+	copyright = "Copyright by Danyil Dobryvechir 2019 Christmas"
 )
 
 type SearchOptionRunBuffer struct {

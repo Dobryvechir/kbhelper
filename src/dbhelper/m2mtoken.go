@@ -1,4 +1,4 @@
-// Copyright by Volodymyr Dobryvechir 2019 (dobrivecher@yahoo.com, vdobryvechir@gmail.com)
+// Copyright by Danyil Dobryvechir 2019 (dobrivecher@yahoo.com, ddobryvechir@gmail.com)
 
 package main
 
@@ -10,7 +10,7 @@ import (
 	"github.com/Dobryvechir/dvserver/src/dvparser"
 )
 
-var copyright = "Copyright by Volodymyr Dobryvechir 2019"
+var copyright = "Copyright by Danyil Dobryvechir 2019"
 
 type AccessToken struct {
 	AccessToken      string `json:"access_token"`

@@ -1,4 +1,4 @@
-// Copyright by Volodymyr Dobryvechir 2019 (dobrivecher@yahoo.com, vdobryvechir@gmail.com)
+// Copyright by Danyil Dobryvechir 2019 (dobrivecher@yahoo.com, ddobryvechir@gmail.com)
 
 package main
 
@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	ocDbaaSCopyRight = "Copyright by Volodymyr Dobryvechir 2019"
+	ocDbaaSCopyRight = "Copyright by Danyil Dobryvechir 2019"
 	ocDbaaSHelp      = "ocdbaas <microservice name> <tenant or - if none> <p = postgres or m=mongodb (default)> <output file>"
 )
 

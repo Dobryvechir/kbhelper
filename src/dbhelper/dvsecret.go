@@ -1,4 +1,4 @@
-// Copyright by Volodymyr Dobryvechir 2019 (dobrivecher@yahoo.com, vdobryvechir@gmail.com)
+// Copyright by Danyil Dobryvechir 2019 (dobrivecher@yahoo.com, ddobryvechir@gmail.com)
 
 package main
 
@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-var copyrightDvSecret = "Copyright by Volodymyr Dobryvechir 2019"
+var copyrightDvSecret = "Copyright by Danyil Dobryvechir 2019"
 
 var help = copyrightDvSecret + "\ndvsecret [folder for all microservices in project, defaults to SECRET_PATH environment variable] [microservice name or * for all, default=*]"
 

@@ -1,4 +1,4 @@
-// Copyright by Volodymyr Dobryvechir 2019 (dobrivecher@yahoo.com, vdobryvechir@gmail.com)
+// Copyright by Danyil Dobryvechir 2019 (dobrivecher@yahoo.com, ddobryvechir@gmail.com)
 
 package main
 
@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	author                = " -  Volodymyr Dobryvechir 2019"
+	author                = " -  Danyil Dobryvechir 2019"
 	atStartSetEnv     = "AT_START_SET_ENV"
 	atFinishSetEnv    = "AT_FINISH_SET_ENV"
 	atStartScaleZero  = "AT_START_SCALE_ZERO"
