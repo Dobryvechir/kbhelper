@@ -1,3 +1,3 @@
-go build kbhelper.go textutils.go podutils.go  
+go build kbhelper.go textutils.go podutils.go walker.go 
 
 
