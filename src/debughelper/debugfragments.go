@@ -8,7 +8,7 @@ import (
 	"github.com/Dobryvechir/dvserver/src/dvnet"
 	"github.com/Dobryvechir/dvserver/src/dvoc"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
-	"github.com/Dobryvechir/dvserver/src/dvtemp"
+	"github.com/Dobryvechir/dvserver/src/dvdir"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -220,7 +220,7 @@ func main() {
 	exitCode := ErrorExitCode
 	noCache := dvparser.GlobalProperties["NO_CACHE"]
 	if noCache != "" && noCache != "false" {
-		dvtemp.ResetAllLocalFileCache()
+		dvdir.ResetAllLocalFileCache()
 	}
 	switch args[0] {
 	case "start":

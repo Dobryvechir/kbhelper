@@ -8,7 +8,7 @@ import (
 	"github.com/Dobryvechir/dvserver/src/dvlog"
 	"github.com/Dobryvechir/dvserver/src/dvnet"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
-	"github.com/Dobryvechir/dvserver/src/dvtemp"
+	"github.com/Dobryvechir/dvserver/src/dvdir"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -108,11 +108,11 @@ func isFragmentListConfigurationForProduction(conf *FragmentListConfig) bool {
 }
 
 func getMicroServiceTemporaryFileName(isOrigin bool) string {
-	path := dvtemp.GetTempPathSlashed()
+	path := dvdir.GetTempPathSlashed()
 	if path == "" {
 		return ""
 	}
-	name := dvtemp.GetSafeFileName(dvparser.GlobalProperties[fragmentMicroServiceName])
+	name := dvdir.GetSafeFileName(dvparser.GlobalProperties[fragmentMicroServiceName])
 	if name == "" {
 		dvlog.PrintfError("You must specify %s", fragmentMicroServiceName)
 		return ""

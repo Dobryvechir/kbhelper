@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/Dobryvechir/dvserver/src/dvjson"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
-	"github.com/Dobryvechir/dvserver/src/dvtemp"
+	"github.com/Dobryvechir/dvserver/src/dvdir"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -427,7 +427,7 @@ func createUniqueFolderByName(template string) string {
 	} else {
 		template = template[:p] + "_create"
 	}
-	if err := dvtemp.CreateOrCleanDir(template, 0755); err != nil {
+	if err := dvdir.CreateOrCleanDir(template, 0755); err != nil {
 		fmt.Printf("Failed to create dir %s: %v", template, err)
 		return ""
 	}
@@ -456,7 +456,7 @@ func produceYamlFilesForObjects(d []byte, folder string) {
 			continue
 		}
 		kind := p.ReadSimpleChildValue("kind")
-		fileName := dvtemp.GetUniqueFileName(folder, kind, ".yaml")
+		fileName := dvdir.GetUniqueFileName(folder, kind, ".yaml")
 		s += "oc create -f " + fileName + "\n"
 		data := p.PrintToYaml(4)
 		err = ioutil.WriteFile(fileName, data, 0644)

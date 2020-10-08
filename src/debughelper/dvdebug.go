@@ -11,7 +11,7 @@ import (
 	"github.com/Dobryvechir/dvserver/src/dvoc"
 	"github.com/Dobryvechir/dvserver/src/dvparser"
 	"github.com/Dobryvechir/dvserver/src/dvprocessors"
-	"github.com/Dobryvechir/dvserver/src/dvtemp"
+	"github.com/Dobryvechir/dvserver/src/dvdir"
 	"github.com/Dobryvechir/dvserver/src/dvurl"
 	"io/ioutil"
 	"strings"
@@ -316,7 +316,7 @@ func makeLimitedWord(src string, amount int) string {
 }
 
 func createBaseFolder(params string) (dir string, ok bool) {
-	dir = dvtemp.GetUniqueTmpFolder()
+	dir = dvdir.GetUniqueTmpFolder()
 	if dir == "" {
 		dvlog.PrintlnError("Cannot create a temporary directory for base folder")
 		return
@@ -400,7 +400,7 @@ func runDvServer(specials map[string]string) bool {
 	}
 	//start dvserver
 	if logDebug {
-		path := dvtemp.GetTempPathSlashed() + "___dobryvechir__debug__fragments__dvserver__config.json"
+		path := dvdir.GetTempPathSlashed() + "___dobryvechir__debug__fragments__dvserver__config.json"
 		data, err := json.Marshal(config)
 		if err == nil {
 			err = ioutil.WriteFile(path, data, 0664)
