@@ -59,7 +59,7 @@ func readHexAsInt(data []byte) (int, error) {
 	}
 	a := 0
 	n := len(b)
-	for i := 0; i <= n; i++ {
+	for i := 0; i < n; i++ {
 		a = (a << 8) | int(b[i])
 	}
 	return a, nil
@@ -79,7 +79,7 @@ func changeInBuf(buf []byte, addr string, hx string) error {
 	if a < 0 || a > n-m {
 		return errors.New("The address " + strconv.Itoa(a) + " is out of bounds [0.." + strconv.Itoa(n) + "-" + strconv.Itoa(m) + "]")
 	}
-	fmt.Printf("Address %d", a)
+	fmt.Printf("Address %d\n", a)
 	for i := 0; i < m; i++ {
 		buf[a+i] = b[i]
 	}
