@@ -4,9 +4,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/Dobryvechir/dvserver/src/dvnet"
-	"github.com/Dobryvechir/dvserver/src/dvoc"
-	"github.com/Dobryvechir/dvserver/src/dvparser"
+	"github.com/Dobryvechir/microcore/pkg/dvaction"
+	"github.com/Dobryvechir/microcore/pkg/dvnet"
+	"github.com/Dobryvechir/microcore/pkg/dvparser"
+	"github.com/Dobryvechir/microcore/pkg/dvtextutils"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -30,7 +31,7 @@ func main() {
 			fmt.Println("Specify property EXECUTE_NET_1 or provide the command line parameters as follows:")
 			fmt.Println("dvnetwork <url property> <method (default - GET)> <header,,,list> <body> <addMessage> <repeats>")
 		} else {
-			dvoc.ExecuteSequence("EXECUTE_NET")
+			dvaction.ExecuteSequence("EXECUTE_NET",nil,nil)
 		}
 		return
 	}
@@ -51,7 +52,7 @@ func main() {
 	}
 	headers := make(map[string]string)
 	if l > 2 {
-		dvparser.PutDescribedAttributesToMapFromCommaSeparatedList(params, headers, args[2])
+		dvtextutils.PutDescribedAttributesToMapFromCommaSeparatedList(params, headers, args[2])
 	}
 	body := ""
 	if l > 3 {
@@ -77,9 +78,9 @@ func main() {
 	}
 	if strings.HasPrefix(headers[Authorization], "M2M_") {
 		microServiceName := headers[Authorization][4:]
-		options[dvoc.M2MAuthorizationRequest] = microServiceName
+		options["M2M"] = microServiceName
 	}
-	data, err := dvnet.NewRequest(method, url, body, headers, options)
+	data, err, _, _ := dvnet.NewRequest(method, url, body, headers, options)
 	if err != nil {
 		fmt.Printf("Error: %s", err.Error())
 	} else {
@@ -88,7 +89,7 @@ func main() {
 		} else {
 			properties := dvparser.CloneGlobalProperties()
 			properties["RESPONSE"] = string(data)
-			addMessage, err = dvparser.SmartReadFileAsString(addMessage[1:], properties)
+			addMessage, err = dvparser.SmartReadFileAsString(addMessage[1:])
 			if err != nil {
 				fmt.Printf("Error: %s", err.Error())
 			} else {
